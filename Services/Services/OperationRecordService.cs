@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using Data.Entities;
 using Data.Interfaces;
-using Microsoft.EntityFrameworkCore.Storage;
+using Notifications.Interfaces;
 using Services.Interfaces;
 using Services.Models;
 
@@ -11,7 +11,7 @@ namespace Services.Services
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
-        public OperationRecordService(IUnitOfWork database)
+        public OperationRecordService(IUnitOfWork database, INotificationService notificationService)
         {
             _database = database;
 

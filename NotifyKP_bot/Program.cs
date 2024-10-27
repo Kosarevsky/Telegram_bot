@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Services.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Services.Services;
+using Notifications.Interfaces;
+using Notifications.Services;
 
 namespace NotifyKP_bot
 {
@@ -32,6 +34,7 @@ namespace NotifyKP_bot
             {
                 //services.AddAutoMapper(typeof(Program).Assembly);
                 services.AddTransient<IOperationRecordService, OperationRecordService>();
+                services.AddTransient<INotificationService, TelegramNotificationService>();
                 services.AddTransient<IUnitOfWork, EntityUnitOfWork>();
 
                 services.AddDbContext<NotifyKPContext>(options =>
