@@ -1,13 +1,4 @@
-﻿using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
-using System;
-using System.Collections.ObjectModel;
-using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-
-namespace NotifyKP_bot
+﻿namespace NotifyKP_bot
 {
     public class Program
     {
