@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Services.Services;
 using Notifications.Interfaces;
 using Notifications.Services;
+using Telegram.Bot.Types;
 
 namespace NotifyKP_bot
 {
@@ -27,14 +28,24 @@ namespace NotifyKP_bot
                 .ConfigureAppConfiguration((context, config) =>
                 {
                     config.SetBasePath(Directory.GetCurrentDirectory());
-                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                    var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "", "appsettings.json");
+
+                 config.AddJsonFile(path, optional: false, reloadOnChange: true);
+                    //config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
                 });
+
 
             builder.ConfigureServices((context, services) =>
             {
+                var _botToken = context.Configuration["Telegram:BotToken"] ?? "0";
+                var _chatId = long.Parse(context.Configuration["Telegram:ChatId"]);
+
                 //services.AddAutoMapper(typeof(Program).Assembly);
                 services.AddTransient<IOperationRecordService, OperationRecordService>();
-                services.AddTransient<INotificationService, TelegramNotificationService>();
+
+                services.AddSingleton<INotificationService>(new TelegramNotificationService(_botToken, _chatId));
+
+
                 services.AddTransient<IUnitOfWork, EntityUnitOfWork>();
 
                 services.AddDbContext<NotifyKPContext>(options =>

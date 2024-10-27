@@ -11,9 +11,12 @@ namespace Services.Services
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notificationService;
+
         public OperationRecordService(IUnitOfWork database, INotificationService notificationService)
         {
             _database = database;
+            _notificationService = notificationService;
 
             var config = new MapperConfiguration(cfg =>
             {
@@ -46,6 +49,7 @@ namespace Services.Services
             var ef = _mapper.Map<OperationRecord>(op);
 
             await _database.Operations.SaveOperationWithDatesAsync(_mapper.Map<OperationRecord>(op));
+            await _notificationService.SendNotificationAsync("Найдены новые даты: " + string.Join(", ", dates));
         }
     }
 }

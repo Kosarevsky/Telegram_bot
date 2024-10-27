@@ -1,18 +1,30 @@
 ﻿using Notifications.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Telegram.Bot;
+using Telegram.Bot.Polling;
 
 namespace Notifications.Services
 {
     public class TelegramNotificationService : INotificationService
     {
-        public void SendNotificationAsync()
+        private readonly string _botToken;
+        private readonly long _chatId;
+
+        public TelegramNotificationService(string botToken, long chatId)
         {
-            // Telegram Bot API
-            throw new NotImplementedException();
+            _botToken = botToken;
+            _chatId = chatId;
         }
+
+        public async Task SendNotificationAsync(string message)
+        {
+            var botClient = new TelegramBotClient(_botToken);
+            ReceiverOptions receiverOptions = new ReceiverOptions()
+            {
+                AllowedUpdates = []
+            };
+            await botClient.SendTextMessageAsync(_chatId, message);
+        }
+
+
     }
 }

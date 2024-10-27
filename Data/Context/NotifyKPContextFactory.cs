@@ -8,9 +8,11 @@ namespace Data.Context
     {
         public NotifyKPContext CreateDbContext(string[] args)
         {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "", "appsettings.json");
+
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json")
+                .AddJsonFile(path)
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<NotifyKPContext>();
