@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Data.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Data.Context
 {
@@ -12,13 +13,16 @@ namespace Data.Context
 
         public async Task<DateTime> GetCurrentDateTimeFromServerAsync()
         {
-            var currentDate = await this.DateRecords
-                .FromSqlRaw("SELECT GETDATE() AS CurrentDate")
-                .AsNoTracking()
-                .Select(d => d.Date)
-                .FirstOrDefaultAsync();
+            var connection = this.Database.GetDbConnection();
+            await connection.OpenAsync();
 
-            return currentDate;
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT GETDATE()";
+                var result = await command.ExecuteScalarAsync(); 
+                return (DateTime)result; 
+            }
+
         }
 
     }

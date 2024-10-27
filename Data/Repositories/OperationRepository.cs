@@ -1,4 +1,5 @@
 ﻿using Data.Context;
+using Data.Entities;
 using Data.Interfaces;
 
 namespace Data.Repositories
@@ -11,9 +12,25 @@ namespace Data.Repositories
             _context = context;
         }
 
-        public Task SaveOperationWithDatesAsync(IEnumerable<DateTime> dates)
+        public async Task SaveOperationWithDatesAsync(OperationRecord op)
         {
-            throw new NotImplementedException();
+            if (op == null)
+            {
+                throw new ArgumentNullException(nameof(op), "Operation record cannot be null");
+            }
+
+            // Добавляем основную запись
+            await _context.OperationRecords.AddAsync(op);
+
+            // Если у вас есть связанные записи, добавьте их
+            if (op.DateRecords != null && op.DateRecords.Any())
+            {
+                // Убедитесь, что записи также добавлены в контекст
+                await _context.DateRecords.AddRangeAsync(op.DateRecords);
+            }
+
+            // Сохраняем изменения
+            await _context.SaveChangesAsync();
         }
     }
 }

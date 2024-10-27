@@ -5,6 +5,7 @@ namespace Data.Interfaces
     {
         IOperationRepository Operations { get; }
 
+        Task<DateTime> GetCurrentDateTimeFromSQLServer();
         void Save();
     }
 }

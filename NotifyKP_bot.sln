@@ -6,8 +6,15 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Data", "Data\Data.csproj", "{C980A4A1-2531-404E-9594-046872DA4A2C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services", "Services\Services.csproj", "{6DEA0C45-2531-4484-B9A2-BB6F340F848B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C980A4A1-2531-404E-9594-046872DA4A2C} = {C980A4A1-2531-404E-9594-046872DA4A2C}
+	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotifyKP_bot", "NotifyKP_bot\NotifyKP_bot.csproj", "{754F6403-6ACF-4D44-A263-0E8BE7D1A06D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NotifyKP_bot", "NotifyKP_bot\NotifyKP_bot.csproj", "{754F6403-6ACF-4D44-A263-0E8BE7D1A06D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6DEA0C45-2531-4484-B9A2-BB6F340F848B} = {6DEA0C45-2531-4484-B9A2-BB6F340F848B}
+		{C980A4A1-2531-404E-9594-046872DA4A2C} = {C980A4A1-2531-404E-9594-046872DA4A2C}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
