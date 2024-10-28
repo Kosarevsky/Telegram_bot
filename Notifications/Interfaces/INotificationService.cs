@@ -1,13 +1,13 @@
 ﻿
-using Telegram.Bot.Types;
-
 namespace Notifications.Interfaces
 {
     public interface INotificationService
     {
-        Task SendNotificationAsync(string message);
+       // Task SendNotificationAsync(string message);
 
+        Task StartAsync(CancellationToken cancellationToken);
 
+        Task StopAsync(CancellationToken cancellationToken);
 
     }
 }

@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace NotifyKP_bot
 {
-    public class BrowserAutomationService
+    public class BrowserAutomationService : IBrowserAutomationService
     {
         public async Task<List<DateTime>> GetAvailableDateAsync(string url)
         {

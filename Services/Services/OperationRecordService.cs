@@ -49,7 +49,7 @@ namespace Services.Services
             var ef = _mapper.Map<OperationRecord>(op);
 
             await _database.Operations.SaveOperationWithDatesAsync(_mapper.Map<OperationRecord>(op));
-            await _notificationService.SendNotificationAsync("Найдены новые даты: " + string.Join(", ", dates));
+            //await _notificationService.SendNotificationAsync("Найдены новые даты: " + string.Join(", ", dates));
         }
     }
 }

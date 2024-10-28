@@ -4,75 +4,81 @@ using Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Services.Interfaces;
 using Microsoft.Extensions.Hosting;
-using Services.Services;
+using Microsoft.Extensions.Logging;
 using Notifications.Interfaces;
 using Notifications.Services;
-using Telegram.Bot.Types;
+using Services.Interfaces;
+using Services.Services;
+using Telegram.Bot;
 
 namespace NotifyKP_bot
 {
     public class Program
     {
         private readonly IOperationRecordService _operationRecordService;
+        private readonly IBrowserAutomationService _browserAutomationService;
 
-        public Program(IOperationRecordService operationRecordService)
+        public Program(IOperationRecordService operationRecordService, IBrowserAutomationService browserAutomationService)
         {
             _operationRecordService = operationRecordService;
+            _browserAutomationService = browserAutomationService;
         }
 
-        static async Task Main()
+        static async Task Main(string[] args)
         {
-            var builder = Host.CreateDefaultBuilder()
+            var host = Host.CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration((context, config) =>
                 {
+                    var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "appsettings.json");
                     config.SetBasePath(Directory.GetCurrentDirectory());
-                    var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "", "appsettings.json");
+                    config.AddJsonFile(path, optional: false, reloadOnChange: true);
+                })
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                    logging.SetMinimumLevel(LogLevel.Debug);
+                })
+                .ConfigureServices((context, services) =>
+                {
+                    var botToken = context.Configuration["Telegram:BotToken"];
+                    if (string.IsNullOrEmpty(botToken))
+                    {
+                        throw new InvalidOperationException("Bot token is not configured.");
+                    }
 
-                 config.AddJsonFile(path, optional: false, reloadOnChange: true);
-                    //config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-                });
+                    services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
+                    services.AddHostedService<TelegramBotService>();
+                    services.AddTransient<INotificationService, TelegramBotService>();
 
+                    services.AddTransient<IOperationRecordService, OperationRecordService>();
+                    services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
+                    services.AddTransient<IUnitOfWork, EntityUnitOfWork>();
 
-            builder.ConfigureServices((context, services) =>
-            {
-                var _botToken = context.Configuration["Telegram:BotToken"] ?? "0";
-                var _chatId = long.Parse(context.Configuration["Telegram:ChatId"]);
+                    services.AddDbContext<NotifyKPContext>(options =>
+                        options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
 
-                //services.AddAutoMapper(typeof(Program).Assembly);
-                services.AddTransient<IOperationRecordService, OperationRecordService>();
+                    services.AddTransient<Program>();
+                })
+                .Build();
 
-                services.AddSingleton<INotificationService>(new TelegramNotificationService(_botToken, _chatId));
-
-
-                services.AddTransient<IUnitOfWork, EntityUnitOfWork>();
-
-                services.AddDbContext<NotifyKPContext>(options =>
-                    options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
-
-                services.AddTransient<Program>();
-            });
-
-            var host = builder.Build();
-
-            var program = host.Services.GetRequiredService<Program>();
-            await program.RunAsync();
+            await host.RunAsync();  // Завершение Main после завершения приложения
         }
+
 
         public async Task RunAsync()
         {
-            var browserService = new BrowserAutomationService();
             try
             {
-                List<DateTime> dates = await browserService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
+                // Выполнение основной задачи
+                var dates = await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
                 _operationRecordService.SaveOperationDate(dates);
             }
             catch (Exception err)
             {
                 Console.WriteLine($"Error: {err.Message}");
             }
-            Console.ReadLine();
         }
     }
 }
