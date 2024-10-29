@@ -4,6 +4,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Notifications.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace Notifications.Services
 {
@@ -24,32 +25,41 @@ namespace Notifications.Services
         {
             _logger.LogInformation("Starting Telegram Bot...");
 
+            var offset = 0;
+
             var me = await _botClient.GetMeAsync();
             _logger.LogInformation($"Bot ID: {me.Id}, Bot Name: {me.Username}");
 
-            int offset = 0;
-
             while (!cancellationToken.IsCancellationRequested)
             {
-                var updates = await _botClient.GetUpdatesAsync(offset: offset, cancellationToken: cancellationToken);
-
+                var updates = await _botClient.GetUpdatesAsync(offset, cancellationToken: cancellationToken);
                 foreach (var update in updates)
                 {
                     if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
                     {
-                        _logger.LogInformation($"Received update: {update.Message.Text}");
+                        _logger.LogInformation($"Received message: {update.Message.Text}");
                         await HandleMessage(update.Message);
-
-                        // Увеличиваем offset на 1 после обработки каждого обновления
-                        offset = update.Id + 1;
                     }
+                    else if (update.Type == Telegram.Bot.Types.Enums.UpdateType.CallbackQuery)
+                    {
+                        await HandleCallbackQuery(update.CallbackQuery);
+                    }
+                    offset = update.Id + 1;
                 }
-
-                // Задержка, чтобы избежать перегрузки запросами
                 await Task.Delay(1000, cancellationToken);
             }
         }
 
+        private async Task HandleCallbackQuery(CallbackQuery callbackQuery)
+        {
+            var selectedCity = callbackQuery.Data;
+            _logger.LogInformation($"User selected city: {selectedCity}");
+
+            await _botClient.SendTextMessageAsync(
+                callbackQuery.Message.Chat.Id,
+                $"Вы выбрали город: {selectedCity}"
+            );
+        }
 
         private async Task HandleMessage(Message message)
         {
@@ -57,7 +67,26 @@ namespace Notifications.Services
 
             if (message.Text == "/start")
             {
+                var keyboard = new InlineKeyboardMarkup(new[]
+                {
+                    new [] // Первый ряд кнопок
+                    {
+                        InlineKeyboardButton.WithCallbackData("Gdansk", "Gdansk"),
+                        InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska")
+                    }
+                    // Добавьте другие города аналогичным образом
+                });
+
+
                 await _botClient.SendTextMessageAsync(message.Chat.Id, "Welcome to the bot!");
+                
+                await _botClient.SendTextMessageAsync(
+                    message.Chat.Id,
+                    "Выберите город:",
+                    replyMarkup: keyboard
+                );
+
+
             }
             else if (message.Text.StartsWith("/date"))
             {

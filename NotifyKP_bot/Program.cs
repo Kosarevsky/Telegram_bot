@@ -8,6 +8,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Notifications.Interfaces;
 using Notifications.Services;
+using NotifyKP_bot.Interfaces;
+using NotifyKP_bot.Services;
 using Services.Interfaces;
 using Services.Services;
 using Telegram.Bot;
@@ -38,7 +40,7 @@ namespace NotifyKP_bot
                 {
                     logging.ClearProviders();
                     logging.AddConsole();
-                    logging.SetMinimumLevel(LogLevel.Debug);
+                    logging.SetMinimumLevel(LogLevel.Trace);
                 })
                 .ConfigureServices((context, services) =>
                 {
@@ -48,11 +50,14 @@ namespace NotifyKP_bot
                         throw new InvalidOperationException("Bot token is not configured.");
                     }
 
-                    services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
-                    services.AddHostedService<TelegramBotService>();
                     services.AddTransient<INotificationService, TelegramBotService>();
 
                     services.AddTransient<IOperationRecordService, OperationRecordService>();
+                    services.AddHostedService<ScheduledTaskService>();
+
+                    services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
+                    services.AddHostedService<TelegramBotService>();
+
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
                     services.AddTransient<IUnitOfWork, EntityUnitOfWork>();
 

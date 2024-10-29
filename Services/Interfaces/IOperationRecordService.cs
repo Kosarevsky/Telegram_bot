@@ -3,6 +3,6 @@ namespace Services.Interfaces
 {
     public interface IOperationRecordService
     {
-        void SaveOperationDate(ICollection<DateTime> dates);
+        void SaveOperationDate(List<DateTime> dates);
     }
 }

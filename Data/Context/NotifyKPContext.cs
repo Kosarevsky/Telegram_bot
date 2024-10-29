@@ -1,5 +1,6 @@
 ﻿using Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Data.Context
 {
@@ -10,20 +11,27 @@ namespace Data.Context
         public DbSet<OperationRecord> OperationRecords { get; set; }
         public DbSet<DateRecord> DateRecords { get; set; }
 
-
         public async Task<DateTime> GetCurrentDateTimeFromServerAsync()
         {
-            var connection = this.Database.GetDbConnection();
-            await connection.OpenAsync();
+            var result = await this.Set<CurrentDateTimeDto>()
+                .FromSqlRaw("SELECT CAST(GETDATE() AS DATETIME) AS CurrentDateTime")
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
 
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = "SELECT GETDATE()";
-                var result = await command.ExecuteScalarAsync(); 
-                return (DateTime)result; 
-            }
-
+            return result?.CurrentDateTime ?? DateTime.Now;
         }
 
+        [Keyless]
+        [NotMapped]
+        public class CurrentDateTimeDto
+        {
+            public DateTime CurrentDateTime { get; set; }
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<CurrentDateTimeDto>().HasNoKey();
+        }
     }
 }

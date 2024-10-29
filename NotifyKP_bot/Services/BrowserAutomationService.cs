@@ -1,8 +1,9 @@
-﻿using OpenQA.Selenium;
+﻿using NotifyKP_bot.Interfaces;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using System.Text.RegularExpressions;
 
-namespace NotifyKP_bot
+namespace NotifyKP_bot.Services
 {
     public class BrowserAutomationService : IBrowserAutomationService
     {

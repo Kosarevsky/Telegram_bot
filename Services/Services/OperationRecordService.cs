@@ -30,7 +30,7 @@ namespace Services.Services
 
             _mapper = config.CreateMapper();
         }
-        public async void SaveOperationDate(ICollection<DateTime> dates)
+        public async void SaveOperationDate(List<DateTime> dates)
         {
             var op = new OperationRecordModel
             {
