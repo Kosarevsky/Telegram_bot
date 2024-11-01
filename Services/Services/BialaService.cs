@@ -1,7 +1,6 @@
 ﻿using AutoMapper;
 using Data.Entities;
 using Data.Interfaces;
-using Notifications.Interfaces;
 using Services.Interfaces;
 using Services.Models;
 

@@ -4,9 +4,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace Data.Context
 {
-    public class NotifyKPContextFactory : IDesignTimeDbContextFactory<NotifyKPContext>
+    public class BotContextFactory : IDesignTimeDbContextFactory<BotContext>
     {
-        public NotifyKPContext CreateDbContext(string[] args)
+        public BotContext CreateDbContext(string[] args)
         {
             var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "appsettings.json");
 
@@ -15,11 +15,11 @@ namespace Data.Context
                 .AddJsonFile(path)
                 .Build();
 
-            var optionsBuilder = new DbContextOptionsBuilder<NotifyKPContext>();
+            var optionsBuilder = new DbContextOptionsBuilder<BotContext>();
             var connectionString = configuration.GetConnectionString("DefaultConnection");
             optionsBuilder.UseSqlServer(connectionString);
 
-            return new NotifyKPContext(optionsBuilder.Options);
+            return new BotContext(optionsBuilder.Options);
         }
     }
 }

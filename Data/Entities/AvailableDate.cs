@@ -15,7 +15,7 @@ namespace Data.Entities
         [Required]
         [ForeignKey("Execution")]
         public int OperationId { get; set; }
-        public Execution Execution { get; set; }
+        public Execution Execution { get; set; } = null!;
 
         [Required]
         [StringLength(50)]

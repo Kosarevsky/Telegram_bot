@@ -2,28 +2,30 @@
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
-using Notifications.Interfaces;
+using Services.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Telegram.Bot.Types.ReplyMarkups;
 
 
-namespace Notifications.Services
+namespace Services.Services
 {
     public class TelegramBotService : IHostedService, INotificationService
     {
         private readonly ITelegramBotClient _botClient;
         private readonly ILogger _logger;
         private readonly long _chatId;
-        private IUserService _userService;
+        private readonly IUserService _userService;
 
         public TelegramBotService(
             ITelegramBotClient botClient,
             ILogger<TelegramBotService> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IUserService userService)
         {
             _botClient = botClient;
             _logger = logger;
             _chatId = long.Parse(configuration["Telegram:ChatId"]);
+            _userService = userService;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -74,9 +76,9 @@ namespace Notifications.Services
                         new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - braki formalne", "/Biala04") },
                         new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - odbiór karty", "/Biala05") },
                         new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - wniosek", "/Biala06") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - braki formalne", "Biala07") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - odbiór karty", "Biala08") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Obywatele UE + Polski Dokument Podróży", "Biala09") }
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - braki formalne", "/Biala07") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - odbiór karty", "/Biala08") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Obywatele UE + Polski Dokument Podróży", "/Biala09") }
                     });
 
                     await _botClient.SendTextMessageAsync(
@@ -86,6 +88,22 @@ namespace Notifications.Services
                     );
                     break;
                 case "/Biala02":
+                    var user = await _userService.GetByTelegramIdAsync(callbackQuery.From.Id);
+                    if (user == null || ( user != null && !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton)))
+                    {
+                        await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
+                        await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                            "Вы подписались на уведомление Biala Podlaska Karta Polaka - dzieci");
+                    }
+                    else {
+                        if (user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
+                        {
+                            await _userService.DeleteSubsription(callbackQuery.Message.Chat.Id, selectedButton);
+                            await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                "Вы отписались от Biala Podlaska Karta Polaka - dzieci");
+                        }
+                    }
+
                     break;
                 default:
                     // Ответ на выбор другого города

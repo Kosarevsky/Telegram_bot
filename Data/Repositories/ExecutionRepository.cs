@@ -6,8 +6,8 @@ namespace Data.Repositories
 {
     public class ExecutionRepository : IExecutionRepository
     {
-        private readonly NotifyKPContext _context;
-        public ExecutionRepository(NotifyKPContext context)
+        private readonly BotContext _context;
+        public ExecutionRepository(BotContext context)
         {
             _context = context;
         }

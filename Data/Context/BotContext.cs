@@ -4,9 +4,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Data.Context
 {
-    public class NotifyKPContext : DbContext
+    public class BotContext : DbContext
     {
-        public NotifyKPContext(DbContextOptions<NotifyKPContext> options) : base(options) { }
+        public BotContext(DbContextOptions<BotContext> options) : base(options) { }
 
         public DbSet<Execution> Execution { get; set; }
         public DbSet<AvailableDate> AvailableDates { get; set; }

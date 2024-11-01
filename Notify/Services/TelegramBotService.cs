@@ -5,6 +5,7 @@ using Telegram.Bot.Types;
 using Notifications.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Telegram.Bot.Types.ReplyMarkups;
+using Services.Interfaces;
 
 
 namespace Notifications.Services
@@ -14,16 +15,18 @@ namespace Notifications.Services
         private readonly ITelegramBotClient _botClient;
         private readonly ILogger _logger;
         private readonly long _chatId;
-        private IUserService _userService;
+        private readonly IUserService _userService;
 
         public TelegramBotService(
             ITelegramBotClient botClient,
             ILogger<TelegramBotService> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IUserService userService)
         {
             _botClient = botClient;
             _logger = logger;
             _chatId = long.Parse(configuration["Telegram:ChatId"]);
+            _userService = userService;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -86,6 +89,7 @@ namespace Notifications.Services
                     );
                     break;
                 case "/Biala02":
+                    var userSubscription = _userService.GetAll(callbackQuery.From.Id);
                     break;
                 default:
                     // Ответ на выбор другого города

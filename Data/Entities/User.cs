@@ -8,10 +8,10 @@ namespace Data.Entities
     {
         [Key]
         [Required]
-        public int Id { get; set; }
+        public long Id { get; set; }
 
         [Required]
-        public int TelegramUserId { get; set; }
+        public long TelegramUserId { get; set; }
 
         public ICollection<UserSubscription> Subscriptions { get; set; } = new List<UserSubscription>();
     }

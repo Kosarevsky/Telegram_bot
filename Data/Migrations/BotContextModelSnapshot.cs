@@ -4,19 +4,16 @@ using Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
 namespace Data.Migrations
 {
-    [DbContext(typeof(NotifyKPContext))]
-    [Migration("20241101121845_AvailableDateCode")]
-    partial class AvailableDateCode
+    [DbContext(typeof(BotContext))]
+    partial class BotContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -25,7 +22,7 @@ namespace Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Data.Context.NotifyKPContext+CurrentDateTimeDto", b =>
+            modelBuilder.Entity("Data.Context.BotContext+CurrentDateTimeDto", b =>
                 {
                     b.Property<DateTime>("CurrentDateTime")
                         .HasColumnType("datetime2");
@@ -77,14 +74,14 @@ namespace Data.Migrations
 
             modelBuilder.Entity("Data.Entities.User", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<int>("TelegramUserId")
-                        .HasColumnType("int");
+                    b.Property<long>("TelegramUserId")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -104,8 +101,8 @@ namespace Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 

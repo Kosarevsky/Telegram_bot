@@ -6,8 +6,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Notifications.Interfaces;
-using Notifications.Services;
 using NotifyKP_bot.Interfaces;
 using NotifyKP_bot.Services;
 using Services.Interfaces;
@@ -52,12 +50,14 @@ namespace NotifyKP_bot
 
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
                     services.AddScoped<IUnitOfWork, EntityUnitOfWork>();
-                    services.AddDbContext<NotifyKPContext>(options =>
+                    services.AddDbContext<BotContext>(options =>
                         options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
 
-                    services.AddTransient<INotificationService, TelegramBotService>();
                     services.AddTransient<IBialaService, BialaService>();
+                    services.AddTransient<INotificationService, TelegramBotService>();
+                    services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
+
                     services.AddHostedService<ScheduledTaskService>();
                     services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
 
