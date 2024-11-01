@@ -7,48 +7,49 @@ using Services.Models;
 
 namespace Services.Services
 {
-    public class OperationRecordService : IOperationRecordService
+    public class BialaService : IBialaService
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
         private readonly INotificationService _notificationService;
 
-        public OperationRecordService(IUnitOfWork database, INotificationService notificationService)
+        public BialaService(IUnitOfWork database, INotificationService notificationService)
         {
             _database = database;
             _notificationService = notificationService;
 
             var config = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<OperationRecord, OperationRecordModel>()
-                    .ForMember(d => d.DateRecords, s => s.MapFrom(x => x.DateRecords))
-                    .ReverseMap()
-                    .ForMember(d => d.ExecutionTime, s => s.MapFrom(x => x.ExecutionTime));
+                cfg.CreateMap<Execution, ExecutionModel>()
+                    .ForMember(d => d.ExecutionTime, s => s.MapFrom(x => x.ExecutionDateTime))
+                    .ReverseMap();
 
-                cfg.CreateMap<DateRecord, DateRecordModel>().ReverseMap(); 
+
+                cfg.CreateMap<AvailableDate, AvailableDateModel>().ReverseMap(); 
             });
 
             _mapper = config.CreateMapper();
         }
-        public async void SaveOperationDate(List<DateTime> dates)
+        public async void Save(List<DateTime> dates, string code)
         {
-            var op = new OperationRecordModel
+            var op = new ExecutionModel
             {
                 ExecutionTime = await _database.GetCurrentDateTimeFromSQLServer(),
-                DateRecords = new List<DateRecordModel>() 
+                AvailableDates = new List<AvailableDateModel>(),
             };
 
             foreach (var date in dates)
             {
-                op.DateRecords.Add(new DateRecordModel
+                op.AvailableDates.Add(new AvailableDateModel
                 {
                     Date = date,
+                    Code = code
                 });
             }
 
-            var ef = _mapper.Map<OperationRecord>(op);
+            //var ef = _mapper.Map<Execution>(op);
 
-            await _database.Operations.SaveOperationWithDatesAsync(_mapper.Map<OperationRecord>(op));
+            await _database.Executions.SaveOperationWithDatesAsync(_mapper.Map<Execution>(op));
             //await _notificationService.SendNotificationAsync("Найдены новые даты: " + string.Join(", ", dates));
         }
     }

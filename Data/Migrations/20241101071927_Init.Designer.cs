@@ -4,6 +4,7 @@ using Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Data.Migrations
 {
     [DbContext(typeof(NotifyKPContext))]
-    partial class NotifyKPContextModelSnapshot : ModelSnapshot
+    [Migration("20241101071927_Init")]
+    partial class Init
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -37,11 +40,6 @@ namespace Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
@@ -114,7 +112,7 @@ namespace Data.Migrations
             modelBuilder.Entity("Data.Entities.AvailableDate", b =>
                 {
                     b.HasOne("Data.Entities.Execution", "Execution")
-                        .WithMany("AvailableDates")
+                        .WithMany("DateRecords")
                         .HasForeignKey("OperationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -135,7 +133,7 @@ namespace Data.Migrations
 
             modelBuilder.Entity("Data.Entities.Execution", b =>
                 {
-                    b.Navigation("AvailableDates");
+                    b.Navigation("DateRecords");
                 });
 
             modelBuilder.Entity("Data.Entities.User", b =>

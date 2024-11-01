@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Data.Entities
 {
-    [Table("DateRecord")]
-    public class DateRecord
+    [Table("AvailableDate")]
+    public class AvailableDate
     {
         [Key]
         [Required]
@@ -13,9 +13,13 @@ namespace Data.Entities
         public DateTime Date { get; set; }
 
         [Required]
-        [ForeignKey("Operation")]
+        [ForeignKey("Execution")]
         public int OperationId { get; set; }
-        public OperationRecord Operation { get; set; }
+        public Execution Execution { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        public string Code { get; set; } = string.Empty;
 
     }
 }

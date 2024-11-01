@@ -3,14 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Data.Entities
 {
-    [Table("OperationRecord")]
-    public class OperationRecord
+    [Table("Execution")]
+    public class Execution
     {
         [Key]
         [Required]
         public int Id { get; set; }
-        public DateTime ExecutionTime { get; set; }
+        public DateTime ExecutionDateTime { get; set; }
  
-        public List<DateRecord> DateRecords { get; set; } = new List<DateRecord>();
+        public ICollection<AvailableDate> AvailableDates { get; set; } = new List<AvailableDate>();
     }
 }

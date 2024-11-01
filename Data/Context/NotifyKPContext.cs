@@ -8,8 +8,10 @@ namespace Data.Context
     {
         public NotifyKPContext(DbContextOptions<NotifyKPContext> options) : base(options) { }
 
-        public DbSet<OperationRecord> OperationRecords { get; set; }
-        public DbSet<DateRecord> DateRecords { get; set; }
+        public DbSet<Execution> Execution { get; set; }
+        public DbSet<AvailableDate> AvailableDates { get; set; }
+        public DbSet<User> Users { get; set; }
+        public DbSet<UserSubscription> UserSubscriptions { get; set; }
 
         public async Task<DateTime> GetCurrentDateTimeFromServerAsync()
         {
@@ -32,6 +34,11 @@ namespace Data.Context
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.Entity<CurrentDateTimeDto>().HasNoKey();
+
+            modelBuilder.Entity<User>()
+            .HasMany(u => u.Subscriptions)
+            .WithOne(uc => uc.User)
+            .HasForeignKey(uc => uc.UserId);
         }
     }
 }

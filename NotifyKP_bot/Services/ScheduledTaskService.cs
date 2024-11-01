@@ -1,7 +1,4 @@
-﻿using Data.Context;
-using Data.Interfaces;
-using Data.Repositories;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -14,18 +11,21 @@ namespace NotifyKP_bot.Services
     {
         private readonly ILogger<ScheduledTaskService> _logger;
         private readonly IBrowserAutomationService _browserAutomationService;
-        private readonly IOperationRecordService _operationRecordService;
-        private Timer _timer;
+        private readonly IBialaService _bialaService;
+        private readonly IServiceScopeFactory _serviceFactory;
+        private Timer _timer = null!;
         private readonly int _interval;
         public ScheduledTaskService(
             ILogger<ScheduledTaskService> logger, 
             IBrowserAutomationService browserAutomationService, 
-            IOperationRecordService operationRecordService,
-            IConfiguration configuration)
+            IBialaService bialaService,
+            IConfiguration configuration,
+            IServiceScopeFactory scopeFactory)
         {
             _logger = logger;
             _browserAutomationService = browserAutomationService;
-            _operationRecordService = operationRecordService;
+            _bialaService = bialaService;
+            _serviceFactory = scopeFactory;
 
             var bialaTaskScheduled = configuration["ScheduledTask:Biala"];
             if (!int.TryParse(bialaTaskScheduled, out _interval) || _interval <= 0)
@@ -50,7 +50,7 @@ namespace NotifyKP_bot.Services
                 var dates = await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
                 if (dates != null && dates.Any())
                 {
-                    _operationRecordService.SaveOperationDate(dates);
+                    _bialaService.Save(dates, "/Biala02");
                     _logger.LogInformation("Dates saved Successfully");
                 }
                 else {
@@ -70,6 +70,7 @@ namespace NotifyKP_bot.Services
             _timer?.Change(Timeout.Infinite, 0);
             return Task.CompletedTask;
         }
+
         public void Dispose()
         {
             _timer?.Dispose();

@@ -1,9 +1,8 @@
-﻿using System;
-namespace Data.Interfaces
+﻿namespace Data.Interfaces
 {
     public interface IUnitOfWork
     {
-        IOperationRepository Operations { get; }
+        IExecutionRepository Executions { get; }
 
         Task<DateTime> GetCurrentDateTimeFromSQLServer();
         void Save();

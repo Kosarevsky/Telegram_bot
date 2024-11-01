@@ -18,12 +18,12 @@ namespace NotifyKP_bot
 {
     public class Program
     {
-        private readonly IOperationRecordService _operationRecordService;
+        private readonly IBialaService _bialaService;
         private readonly IBrowserAutomationService _browserAutomationService;
 
-        public Program(IOperationRecordService operationRecordService, IBrowserAutomationService browserAutomationService)
+        public Program(IBialaService bialaService, IBrowserAutomationService browserAutomationService)
         {
-            _operationRecordService = operationRecordService;
+            _bialaService = bialaService;
             _browserAutomationService = browserAutomationService;
         }
 
@@ -50,25 +50,22 @@ namespace NotifyKP_bot
                         throw new InvalidOperationException("Bot token is not configured.");
                     }
 
-                    services.AddTransient<INotificationService, TelegramBotService>();
-
-                    services.AddTransient<IOperationRecordService, OperationRecordService>();
-                    services.AddHostedService<ScheduledTaskService>();
-
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
-                    services.AddHostedService<TelegramBotService>();
-
-                    services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
-                    services.AddTransient<IUnitOfWork, EntityUnitOfWork>();
-
+                    services.AddScoped<IUnitOfWork, EntityUnitOfWork>();
                     services.AddDbContext<NotifyKPContext>(options =>
                         options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
 
-                    services.AddTransient<Program>();
+                    services.AddTransient<INotificationService, TelegramBotService>();
+                    services.AddTransient<IBialaService, BialaService>();
+                    services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
+                    services.AddHostedService<ScheduledTaskService>();
+                    services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+
+                    services.AddHostedService<TelegramBotService>();
                 })
                 .Build();
 
-            await host.RunAsync();  // Завершение Main после завершения приложения
+            await host.RunAsync(); 
         }
 
 
@@ -76,9 +73,7 @@ namespace NotifyKP_bot
         {
             try
             {
-                // Выполнение основной задачи
-                var dates = await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
-                _operationRecordService.SaveOperationDate(dates);
+                await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
             }
             catch (Exception err)
             {

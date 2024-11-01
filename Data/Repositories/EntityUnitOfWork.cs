@@ -6,9 +6,9 @@ namespace Data.Repositories
     public class EntityUnitOfWork : IUnitOfWork
     {
         private readonly NotifyKPContext _context;
-        private OperationRepository _operationRepository;
-        public IOperationRepository Operations => 
-            _operationRepository ?? (_operationRepository = new OperationRepository(_context));
+        private ExecutionRepository _executionRepository;
+        public IExecutionRepository Executions =>
+            _executionRepository ?? (_executionRepository = new ExecutionRepository(_context));
 
         public async Task<DateTime> GetCurrentDateTimeFromSQLServer() => await _context.GetCurrentDateTimeFromServerAsync();
 
@@ -16,7 +16,6 @@ namespace Data.Repositories
         {
             _context = context;
         }
-
 
         public void Save()
         {

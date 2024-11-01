@@ -14,7 +14,10 @@ namespace Notifications.Services
         private readonly ILogger _logger;
         private readonly long _chatId;
 
-        public TelegramBotService(ITelegramBotClient botClient, ILogger<TelegramBotService> logger, IConfiguration configuration)
+        public TelegramBotService(
+            ITelegramBotClient botClient,
+            ILogger<TelegramBotService> logger,
+            IConfiguration configuration)
         {
             _botClient = botClient;
             _logger = logger;
@@ -52,49 +55,108 @@ namespace Notifications.Services
 
         private async Task HandleCallbackQuery(CallbackQuery callbackQuery)
         {
-            var selectedCity = callbackQuery.Data;
-            _logger.LogInformation($"User selected city: {selectedCity}");
+            var selectedButton = callbackQuery.Data;
+            var userId = callbackQuery.From.Id;
+            _logger.LogInformation($"User selected city: {selectedButton}");
 
-            await _botClient.SendTextMessageAsync(
-                callbackQuery.Message.Chat.Id,
-                $"Вы выбрали город: {selectedCity}"
-            );
+            // Если пользователь выбрал Biala Podlaska, отправляем ему список вопросов
+            if (selectedButton == "Biala Podlaska")
+            {
+                var questionKeyboard = new InlineKeyboardMarkup(new[]
+                {
+                    new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dorośli", "/Biala01") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dzieci", "/Biala02") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - wniosek", "/Biala03") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - braki formalne", "/Biala04") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - odbiór karty", "/Biala05") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - wniosek", "/Biala06") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - braki formalne", "Biala07") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - odbiór karty", "Biala08") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Obywatele Unii Europejskiej + Polski Dokument Podróży", "Biala09") }
+                });
+
+                await _botClient.SendTextMessageAsync(
+                    callbackQuery.Message.Chat.Id,
+                    "Вы выбрали город Biala Podlaska. Пожалуйста, выберите один из следующих вопросов:",
+                    replyMarkup: questionKeyboard
+                );
+            }
+            else
+            {
+                // Ответ на выбор другого города
+                await _botClient.SendTextMessageAsync(
+                    callbackQuery.Message.Chat.Id,
+                    $"Вы выбрали город: {selectedButton}"
+                );
+            }
         }
 
         private async Task HandleMessage(Message message)
         {
             _logger.LogInformation($"Received message from {message.Chat.Id}: {message.Text}");
 
+            // Определяем клавиатуру с постоянной кнопкой "Меню"
+            var mainKeyboard = new ReplyKeyboardMarkup(new[]
+            {
+                new KeyboardButton[] { "Меню" }
+            })
+            {
+                ResizeKeyboard = true,
+                OneTimeKeyboard = false,
+                IsPersistent = true // Клавиатура будет всегда видимой
+            };
+
+            // Если пользователь отправил команду /start, приветствуем его и показываем клавиатуру с кнопкой "Меню"
             if (message.Text == "/start")
             {
-                var keyboard = new InlineKeyboardMarkup(new[]
+                await _botClient.SendTextMessageAsync(message.Chat.Id, "Welcome to the bot!", replyMarkup: mainKeyboard);
+                await _botClient.SendTextMessageAsync(message.Chat.Id, "Нажмите 'Меню', чтобы выбрать город.");
+            }
+            else if (message.Text == "Меню")
+            {
+                // Клавиатура с выбором городов
+                var cityKeyboard = new InlineKeyboardMarkup(new[]
                 {
-                    new [] // Первый ряд кнопок
+                    new []
                     {
                         InlineKeyboardButton.WithCallbackData("Gdansk", "Gdansk"),
                         InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska")
                     }
-                    // Добавьте другие города аналогичным образом
+                    // Можно добавить другие города аналогично
                 });
 
-
-                await _botClient.SendTextMessageAsync(message.Chat.Id, "Welcome to the bot!");
-                
                 await _botClient.SendTextMessageAsync(
                     message.Chat.Id,
-                    "Выберите город:",
-                    replyMarkup: keyboard
+                    "Выберите город из списка:",
+                    replyMarkup: cityKeyboard
                 );
-
-
             }
             else if (message.Text.StartsWith("/date"))
             {
-                // Обработайте команду /date
-                await _botClient.SendTextMessageAsync(message.Chat.Id, $"Current date: {DateTime.Now}");
+                await _botClient.SendTextMessageAsync(message.Chat.Id, $"Current date: {DateTime.Now}", replyMarkup: mainKeyboard);
             }
-            // Добавьте другие команды по мере необходимости
+
+
+
         }
+
+        public async Task NotifyUsersForCityAsync(string city, IEnumerable<DateTime> dates)
+        {
+            // Найдите пользователей, выбравших город Biala
+            /*            var users = await _context.Users
+                            .Where(u => u.SelectedCity == city)
+                            .ToListAsync();
+
+                        foreach (var user in users)
+                        {
+                            foreach (var date in dates)
+                            {
+                                var message = $"Доступна дата для {city}: {date.ToShortDateString()}";
+                                await _telegramBotClient.SendTextMessageAsync(user.ChatId, message);
+                            }
+                        }*/
+        }
+
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
