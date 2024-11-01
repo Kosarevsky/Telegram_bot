@@ -43,7 +43,11 @@ namespace Data.Repositories
 
             if (!user.Subscriptions.Any(s => s.SubscriptionCode == code))
             {
-                var subscription = new UserSubscription { SubscriptionCode = code, UserId = user.Id };
+                var subscription = new UserSubscription { 
+                    SubscriptionCode = code, 
+                    UserId = user.Id , 
+                    SubscriptionDateTime = await _context.GetCurrentDateTimeFromServerAsync()
+                };
                 user.Subscriptions.Add(subscription); 
                 await _context.SaveChangesAsync(); 
             }

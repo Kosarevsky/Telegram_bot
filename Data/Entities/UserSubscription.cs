@@ -18,5 +18,8 @@ namespace Data.Entities
         [Required]
         [MaxLength(50)]
         public string SubscriptionCode { get; set; } = null!;
+
+        [Required]
+        public DateTime SubscriptionDateTime { get; set; }
     }
 }

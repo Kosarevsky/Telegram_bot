@@ -8,5 +8,6 @@
         public UserModel User { get; set; } = null!;
 
         public string SubscriptionCode { get; set; } = null!;
+        public DateTime SubscriptionDateTime { get; set; }
     }
 }

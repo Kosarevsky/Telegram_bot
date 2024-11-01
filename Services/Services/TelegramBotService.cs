@@ -106,7 +106,6 @@ namespace Services.Services
 
                     break;
                 default:
-                    // Ответ на выбор другого города
                     await _botClient.SendTextMessageAsync(
                         callbackQuery.Message.Chat.Id,
                         $"Вы выбрали город: {selectedButton}"
