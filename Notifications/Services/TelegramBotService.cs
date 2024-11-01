@@ -40,8 +40,10 @@ namespace Notifications.Services
                 {
                     if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
                     {
-                        _logger.LogInformation($"Received message: {update.Message.Text}");
-                        await HandleMessage(update.Message);
+                        if (update?.Message?.Text != null) { 
+                            _logger.LogInformation($"Received message: {update.Message.Text}");
+                            await HandleMessage(update.Message);
+                        }
                     }
                     else if (update.Type == Telegram.Bot.Types.Enums.UpdateType.CallbackQuery)
                     {
@@ -59,35 +61,36 @@ namespace Notifications.Services
             var userId = callbackQuery.From.Id;
             _logger.LogInformation($"User selected city: {selectedButton}");
 
-            // Если пользователь выбрал Biala Podlaska, отправляем ему список вопросов
-            if (selectedButton == "Biala Podlaska")
+            switch (selectedButton)
             {
-                var questionKeyboard = new InlineKeyboardMarkup(new[]
-                {
-                    new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dorośli", "/Biala01") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dzieci", "/Biala02") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - wniosek", "/Biala03") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - braki formalne", "/Biala04") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - odbiór karty", "/Biala05") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - wniosek", "/Biala06") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - braki formalne", "Biala07") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - odbiór karty", "Biala08") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Obywatele Unii Europejskiej + Polski Dokument Podróży", "Biala09") }
-                });
+                case "Biala Podlaska": 
+                    var questionKeyboard = new InlineKeyboardMarkup(new[]
+                    {
+                        new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dorośli", "/Biala01") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dzieci", "/Biala02") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - wniosek", "/Biala03") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - braki formalne", "/Biala04") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - odbiór karty", "/Biala05") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - wniosek", "/Biala06") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - braki formalne", "Biala07") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - odbiór karty", "Biala08") },
+                        new [] { InlineKeyboardButton.WithCallbackData("Obywatele Unii Europejskiej + Polski Dokument Podróży", "Biala09") }
+                    });
 
-                await _botClient.SendTextMessageAsync(
-                    callbackQuery.Message.Chat.Id,
-                    "Вы выбрали город Biala Podlaska. Пожалуйста, выберите один из следующих вопросов:",
-                    replyMarkup: questionKeyboard
-                );
-            }
-            else
-            {
-                // Ответ на выбор другого города
-                await _botClient.SendTextMessageAsync(
-                    callbackQuery.Message.Chat.Id,
-                    $"Вы выбрали город: {selectedButton}"
-                );
+                    await _botClient.SendTextMessageAsync(
+                        callbackQuery.Message.Chat.Id,
+                        "Вы выбрали город Biala Podlaska. Пожалуйста, выберите один из следующих вопросов:",
+                        replyMarkup: questionKeyboard
+                    );
+                    break;
+                    
+                default:
+                    // Ответ на выбор другого города
+                    await _botClient.SendTextMessageAsync(
+                        callbackQuery.Message.Chat.Id,
+                        $"Вы выбрали город: {selectedButton}"
+                    );
+                    break;
             }
         }
 
