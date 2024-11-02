@@ -47,16 +47,7 @@ namespace NotifyKP_bot.Services
             _logger.LogInformation("Executing scheduled task");
             try
             {
-                var dates = await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
-                if (dates != null && dates.Any())
-                {
-                    _bialaService.Save(dates, "/Biala02");
-                    _logger.LogInformation("Dates saved Successfully");
-                }
-                else {
-                    _logger.LogInformation("no dates available to save");
-                }
-             
+                await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
             }
             catch (Exception ex)
             {
