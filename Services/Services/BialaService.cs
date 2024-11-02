@@ -10,9 +10,9 @@ namespace Services.Services
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
-        private readonly INotificationService _notificationService;
+        private readonly ITelegramBotService _notificationService;
 
-        public BialaService(IUnitOfWork database, INotificationService notificationService)
+        public BialaService(IUnitOfWork database, ITelegramBotService notificationService)
         {
             _database = database;
             _notificationService = notificationService;
@@ -46,10 +46,7 @@ namespace Services.Services
                 });
             }
 
-            //var ef = _mapper.Map<Execution>(op);
-
             await _database.Executions.SaveOperationWithDatesAsync(_mapper.Map<Execution>(op));
-            //await _notificationService.SendNotificationAsync("Найдены новые даты: " + string.Join(", ", dates));
         }
     }
 }

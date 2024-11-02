@@ -2,6 +2,7 @@
 using Data.Entities;
 using Data.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Data.Repositories
 {
@@ -13,20 +14,21 @@ namespace Data.Repositories
             _context = context;
         }
 
-        public async Task<List<User>> GetAsync()
+        public async Task<IEnumerable<User>> GetAllAsync()
         {
             return await _context.Users
-                .Include(s => s.Subscriptions)
+                .Include(a => a.Subscriptions)
                 .AsNoTracking()
                 .ToListAsync();
         }
 
-        public async Task<User?> GetByIdAsync(long telegramId)
+        public async Task<IEnumerable<User>> GetAllAsync(Expression<Func<User, bool>> predicate)
         {
             return await _context.Users
-                .Include(s => s.Subscriptions)
+                .Include(a => a.Subscriptions)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.TelegramUserId == telegramId);
+                .Where(predicate)
+                .ToListAsync();
         }
 
         public async Task SaveSubscriptionAsync(long telegramId, string code)
@@ -52,7 +54,6 @@ namespace Data.Repositories
                 await _context.SaveChangesAsync(); 
             }
         }
-
 
         public async Task DeleteSubscriptionAsync(long telegramId, string code)
         {

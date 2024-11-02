@@ -6,6 +6,6 @@
 
         public long TelegramUserId { get; set; }
 
-        public ICollection<UserSubscriptionModel> Subscriptions { get; set; } = new List<UserSubscriptionModel>();
+        public List<UserSubscriptionModel> Subscriptions { get; set; } = new List<UserSubscriptionModel>();
     }
 }

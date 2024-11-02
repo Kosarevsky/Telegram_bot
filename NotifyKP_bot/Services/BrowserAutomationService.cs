@@ -1,10 +1,10 @@
-﻿using Data.Context;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using NotifyKP_bot.Interfaces;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using Services.Interfaces;
+using Services.Models;
 using System.Text.RegularExpressions;
 
 
@@ -14,24 +14,13 @@ namespace NotifyKP_bot.Services
     {
         private readonly ILogger<BrowserAutomationService> _logger;
         private readonly IBialaService _bialaService;
+        private readonly IEventPublisher _eventPublisher;
 
-        private readonly Dictionary<string, string> buttonCodeMapping = new Dictionary<string, string>()
-        {
-            {"Karta Polaka - dorośli", "/Biala01" },
-            {"Karta Polaka - dzieci", "/Biala02" },
-            {"Pobyt czasowy - wniosek", "/Biala03" },
-            {"Pobyt czasowy - braki formalne", "/Biala04" },
-            {"Pobyt czasowy - odbiór karty", "/Biala05" },
-            {"Pobyt stały i rezydent - wniosek", "/Biala06" },
-            {"Pobyt stały i rezydent - braki formalne", "/Biala07" },
-            {"Pobyt stały i rezydent - odbiór karty", "/Biala08" },
-            {"Obywatele Unii Europejskiej + Polski Dokument Podróży", "/Biala09" }
-        };
-
-        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBialaService bialaService)
+        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBialaService bialaService, IEventPublisher eventPublisher)
         {
             _logger = logger;
             _bialaService = bialaService;
+            _eventPublisher = eventPublisher;
         }
         public async Task GetAvailableDateAsync(string url)
         {
@@ -57,7 +46,7 @@ namespace NotifyKP_bot.Services
                         ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                         await Task.Delay(500);
                         button.Click();
-                        await Task.Delay(1500);
+                        
                         await ErrorCaptchaAsync(driver, button.Text, 5);
                         var buttonDates = CollectAvailableDates(driver, wait);
                         SaveDatesToDatabase(buttonDates, button.Text);
@@ -78,6 +67,7 @@ namespace NotifyKP_bot.Services
         private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int countErrors)
         {
             var err = 0;
+            await Task.Delay(1500);
             while (err < countErrors && driver.FindElements(By.ClassName("sweet-modal-warning")).Any())
             {
                 err++;
@@ -87,7 +77,7 @@ namespace NotifyKP_bot.Services
                 await Task.Delay(1000 * err);
                 var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                await Task.Delay(300);
+                await Task.Delay(1300);
                 button?.Click();
                 await Task.Delay(1000 * err);
             }
@@ -98,10 +88,12 @@ namespace NotifyKP_bot.Services
             if (dates != null && dates.Any())
             {
                 
-                if (buttonCodeMapping.TryGetValue(buttonName, out var buttonCode))
+                if (BialaCodeMapping.buttonCodeMapping.TryGetValue(buttonName, out var buttonCode))
                 {
                     _bialaService.Save(dates, buttonCode); 
                     _logger.LogInformation($"Save date to {buttonName}, {buttonCode}");
+                    _ = _eventPublisher.PublishDatesSavedAsync(buttonCode, dates);
+                    _logger.LogInformation("Subscribed to DatesSaved event.");
                 }
                 else
                 {

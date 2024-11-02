@@ -16,12 +16,10 @@ namespace NotifyKP_bot
 {
     public class Program
     {
-        private readonly IBialaService _bialaService;
         private readonly IBrowserAutomationService _browserAutomationService;
 
-        public Program(IBialaService bialaService, IBrowserAutomationService browserAutomationService)
+        public Program(IBrowserAutomationService browserAutomationService)
         {
-            _bialaService = bialaService;
             _browserAutomationService = browserAutomationService;
         }
 
@@ -49,19 +47,21 @@ namespace NotifyKP_bot
                     }
 
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
+                    services.AddSingleton<IEventPublisher, EventPublisher>();
                     services.AddScoped<IUnitOfWork, EntityUnitOfWork>();
                     services.AddDbContext<BotContext>(options =>
                         options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
 
                     services.AddTransient<IBialaService, BialaService>();
-                    services.AddTransient<INotificationService, TelegramBotService>();
+                    services.AddTransient<ITelegramBotService, TelegramBotService>();
+                    services.AddScoped<INotificationService, NotificationService>();
                     services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
 
                     services.AddHostedService<ScheduledTaskService>();
                     services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
 
-                    services.AddHostedService<TelegramBotService>();
+                    //services.AddHostedService<TelegramBotService>();
                 })
                 .Build();
 

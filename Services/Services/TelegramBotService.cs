@@ -5,13 +5,15 @@ using Telegram.Bot.Types;
 using Services.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Telegram.Bot.Types.ReplyMarkups;
+using Services.Models;
 
 
 namespace Services.Services
 {
-    public class TelegramBotService : IHostedService, INotificationService
+    public class TelegramBotService : IHostedService, ITelegramBotService
     {
         private readonly ITelegramBotClient _botClient;
+        private readonly Lazy<INotificationService> _notificationService;
         private readonly ILogger _logger;
         private readonly long _chatId;
         private readonly IUserService _userService;
@@ -20,12 +22,14 @@ namespace Services.Services
             ITelegramBotClient botClient,
             ILogger<TelegramBotService> logger,
             IConfiguration configuration,
-            IUserService userService)
+            IUserService userService,
+            Lazy<INotificationService> notificationService)
         {
             _botClient = botClient;
             _logger = logger;
             _chatId = long.Parse(configuration["Telegram:ChatId"]);
             _userService = userService;
+            _notificationService = notificationService;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -87,20 +91,36 @@ namespace Services.Services
                         replyMarkup: questionKeyboard
                     );
                     break;
+                case "/Biala01":
                 case "/Biala02":
-                    var user = await _userService.GetByTelegramIdAsync(callbackQuery.From.Id);
-                    if (user == null || ( user != null && !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton)))
+                case "/Biala03":
+                case "/Biala04":
+                case "/Biala05":
+                case "/Biala06":
+                case "/Biala07":
+                case "/Biala08":
+                case "/Biala09":
+
+                    foreach(var el in BialaCodeMapping.buttonCodeMapping)
                     {
-                        await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
-                        await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
-                            "Вы подписались на уведомление Biala Podlaska Karta Polaka - dzieci");
-                    }
-                    else {
-                        if (user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
-                        {
-                            await _userService.DeleteSubsription(callbackQuery.Message.Chat.Id, selectedButton);
-                            await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
-                                "Вы отписались от Biala Podlaska Karta Polaka - dzieci");
+                        if (string.Equals(el.Value, selectedButton)) {
+                            var users = await _userService.GetAllAsync(u => u.TelegramUserId == callbackQuery.From.Id);
+                            var user = users.FirstOrDefault();
+                            if (user == null || (user != null && !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton)))
+                            {
+                                await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
+                                await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                    $"Вы подписались на уведомление {el.Key}");
+                            }
+                            else
+                            {
+                                if (user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
+                                {
+                                    await _userService.DeleteSubsription(callbackQuery.Message.Chat.Id, selectedButton);
+                                    await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                        $"Вы отписались от уведомления {el.Key}");
+                                }
+                            }
                         }
                     }
 
@@ -155,26 +175,12 @@ namespace Services.Services
             {
                 await _botClient.SendTextMessageAsync(message.Chat.Id, $"Current date: {DateTime.Now}", replyMarkup: mainKeyboard);
             }
-
-
-
         }
 
-        public async Task NotifyUsersForCityAsync(string city, IEnumerable<DateTime> dates)
+        public async Task SendTextMessage(long TelegramUserId, string message)
         {
-            // Найдите пользователей, выбравших город Biala
-            /*            var users = await _context.Users
-                            .Where(u => u.SelectedCity == city)
-                            .ToListAsync();
-
-                        foreach (var user in users)
-                        {
-                            foreach (var date in dates)
-                            {
-                                var message = $"Доступна дата для {city}: {date.ToShortDateString()}";
-                                await _telegramBotClient.SendTextMessageAsync(user.ChatId, message);
-                            }
-                        }*/
+            await _botClient.SendTextMessageAsync(TelegramUserId, message);
+            _logger.LogInformation($"Message sent to user {TelegramUserId} message: {message}");
         }
 
 

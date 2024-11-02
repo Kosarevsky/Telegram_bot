@@ -2,11 +2,6 @@
 {
     public interface INotificationService
     {
-       // Task SendNotificationAsync(string message);
-
-        Task StartAsync(CancellationToken cancellationToken);
-
-        Task StopAsync(CancellationToken cancellationToken);
-
+        Task NotificationSend(string code, List<DateTime> dates);
     }
 }
