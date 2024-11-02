@@ -13,23 +13,22 @@ namespace Services.Services
     public class TelegramBotService : IHostedService, ITelegramBotService
     {
         private readonly ITelegramBotClient _botClient;
-        private readonly Lazy<INotificationService> _notificationService;
         private readonly ILogger _logger;
         private readonly long _chatId;
         private readonly IUserService _userService;
-
+        //private readonly INotificationService _notificationService;
         public TelegramBotService(
             ITelegramBotClient botClient,
             ILogger<TelegramBotService> logger,
             IConfiguration configuration,
-            IUserService userService,
-            Lazy<INotificationService> notificationService)
+            IUserService userService)
+            //INotificationService notificationService)
         {
             _botClient = botClient;
             _logger = logger;
             _chatId = long.Parse(configuration["Telegram:ChatId"]);
             _userService = userService;
-            _notificationService = notificationService;
+            //_notificationService = notificationService;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)

@@ -1,37 +1,31 @@
-﻿using Data.Context;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using Services.Interfaces;
+using Services.Services;
+using Data.Context;
 using Data.Interfaces;
 using Data.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using NotifyKP_bot.Interfaces;
 using NotifyKP_bot.Services;
-using Services.Interfaces;
-using Services.Services;
 using Telegram.Bot;
+using Microsoft.Extensions.Logging;
+
 
 namespace NotifyKP_bot
 {
     public class Program
     {
-        private readonly IBrowserAutomationService _browserAutomationService;
-
-        public Program(IBrowserAutomationService browserAutomationService)
+        public static async Task Main(string[] args)
         {
-            _browserAutomationService = browserAutomationService;
+            var host = CreateHostBuilder(args).Build();
+            //await RunAsync(host.Services);
+            await host.RunAsync();
         }
 
-        static async Task Main(string[] args)
-        {
-            var host = Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((context, config) =>
-                {
-                    var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "appsettings.json");
-                    config.SetBasePath(Directory.GetCurrentDirectory());
-                    config.AddJsonFile(path, optional: false, reloadOnChange: true);
-                })
+        public static IHostBuilder CreateHostBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
                 .ConfigureLogging(logging =>
                 {
                     logging.ClearProviders();
@@ -47,6 +41,7 @@ namespace NotifyKP_bot
                     }
 
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
+
                     services.AddSingleton<IEventPublisher, EventPublisher>();
                     services.AddScoped<IUnitOfWork, EntityUnitOfWork>();
                     services.AddDbContext<BotContext>(options =>
@@ -54,26 +49,33 @@ namespace NotifyKP_bot
 
                     services.AddTransient<IBialaService, BialaService>();
                     services.AddTransient<ITelegramBotService, TelegramBotService>();
-                    services.AddScoped<INotificationService, NotificationService>();
+
+
+                    services.AddSingleton<INotificationService>(provider =>
+                    {
+                        var logger = provider.GetRequiredService<ILogger<NotificationService>>();
+                        var telegramBotService = provider.GetRequiredService<ITelegramBotService>();
+                        var eventPublisher = provider.GetRequiredService<IEventPublisher>();
+                        var userService = provider.GetRequiredService<IUserService>();
+
+                        var notificationService = new NotificationService(logger, telegramBotService, eventPublisher, userService);
+                        eventPublisher.DatesSaved += notificationService.OnDatesSavedAsync;
+                        return notificationService;
+                    });
+
                     services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
 
                     services.AddHostedService<ScheduledTaskService>();
                     services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+                });
 
-                    //services.AddHostedService<TelegramBotService>();
-                })
-                .Build();
-
-            await host.RunAsync(); 
-        }
-
-
-        public async Task RunAsync()
+        private static async Task RunAsync(IServiceProvider services)
         {
+            var browserAutomationService = services.GetRequiredService<IBrowserAutomationService>();
             try
             {
-                await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
+                await browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
             }
             catch (Exception err)
             {

@@ -34,19 +34,33 @@ namespace NotifyKP_bot.Services
                 driver.Navigate().GoToUrl(url); //https://bezkolejki.eu/luwbb/
 
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
-                await Task.Delay(500);
+                await Task.Delay(1500);
                 try
                 {
                     var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
+                    var btn = listOperacja2.FindElements(By.TagName("button")).FirstOrDefault();
+                    btn?.Click();
+
+                    await ErrorCaptchaAsync(driver, btn.Text, 5);
+                    wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
+
+                    listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
                     var buttons = listOperacja2.FindElements(By.TagName("button"));
 
                     foreach (var button in buttons)
                     {
-                        await Task.Delay(500);
+                        //await Task.Delay(1500);
                         ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                         await Task.Delay(500);
                         button.Click();
-                        
+                        //wait.Until(d => d.FindElement(By.ClassName("loading-complete-indicator"))); // замените на класс или элемент, который появляется после загрузки
+                        await Task.Delay(500);
+                        wait.Until(d =>
+                        {
+                            var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
+                            return loadingElement.GetCssValue("display") == "none";
+                        });
+
                         await ErrorCaptchaAsync(driver, button.Text, 5);
                         var buttonDates = CollectAvailableDates(driver, wait);
                         SaveDatesToDatabase(buttonDates, button.Text);
@@ -64,30 +78,43 @@ namespace NotifyKP_bot.Services
             }
         }
 
-        private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int countErrors)
+        private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int maxAttempts)
         {
-            var err = 0;
-            await Task.Delay(1500);
-            while (err < countErrors && driver.FindElements(By.ClassName("sweet-modal-warning")).Any())
+            var attempt = 0;
+            while (attempt < maxAttempts)
             {
-                err++;
-                _logger.LogInformation($"Error captcha: {err}");
+                if (!driver.FindElements(By.ClassName("sweet-modal-warning")).Any())
+                {
+                    return;
+                }
+
+                attempt++;
+                _logger.LogInformation($"Captcha error attempt: {attempt}");
 
                 driver.Navigate().Refresh();
-                await Task.Delay(1000 * err);
+                await Task.Delay(1000 * attempt);
+
                 var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
+                if (button == null)
+                {
+                    _logger.LogWarning($"Button with text '{buttonText}' not found after refresh.");
+                    continue; 
+                }
+
                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                 await Task.Delay(1300);
-                button?.Click();
-                await Task.Delay(1000 * err);
+                button.Click();
+                await Task.Delay(1000 * attempt); 
             }
+
+            _logger.LogError("Failed to bypass captcha after maximum attempts.");
+            //throw new InvalidOperationException("Captcha bypass failed after maximum attempts.");
         }
 
         private void SaveDatesToDatabase(List<DateTime> dates, string buttonName)
         {
             if (dates != null && dates.Any())
             {
-                
                 if (BialaCodeMapping.buttonCodeMapping.TryGetValue(buttonName, out var buttonCode))
                 {
                     _bialaService.Save(dates, buttonCode); 

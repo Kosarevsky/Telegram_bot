@@ -29,22 +29,25 @@ namespace NotifyKP_bot.Services
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("ScheduledTaskService is starting.");
-            _timer = new Timer(ExecuteTask, null, TimeSpan.Zero, TimeSpan.FromSeconds(_interval));
+            _timer = new Timer(ExecuteTaskAsync, null, TimeSpan.Zero, TimeSpan.FromSeconds(_interval));
             _logger.LogInformation("Timer is set to interval: {interval} seconds.", _interval);
             return Task.CompletedTask;
         }
 
-        private async void ExecuteTask(object? state)
+        private async void ExecuteTaskAsync(object? state)
         {
-            _logger.LogInformation("Executing scheduled task");
-            try
+            await Task.Run(async () =>
             {
-                await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error executing scheduled task: {ex.Message}");
-            }
+                _logger.LogInformation("Executing scheduled task");
+                try
+                {
+                    await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error executing scheduled task: {ex.Message}");
+                }
+            });
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

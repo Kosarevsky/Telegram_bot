@@ -18,10 +18,10 @@ namespace Services.Services
             _telegramBotService = telegramBotService;
             _userService = userService;
 
-            eventPublisher.DatesSaved += OnDatesSavedAsync;
+            //eventPublisher.DatesSaved += OnDatesSavedAsync;
         }
 
-        private async Task OnDatesSavedAsync(string code, List<DateTime> dates)
+        public async Task OnDatesSavedAsync(string code, List<DateTime> dates)
         {
             await NotificationSend(code, dates);
         }
