@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Services.Interfaces;
+using Services.Models;
 
 namespace Services.Services
 {
@@ -29,19 +30,32 @@ namespace Services.Services
 
         public async Task NotificationSend(string code, List<DateTime> dates)
         {
-/*            var subscribers = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
-            var message = GenerateMessage(dates);*/
+            var subscribers = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
+            var message = GenerateMessage(dates, code);
 
-/*            foreach (var subscriber in subscribers)
+
+
+
+            foreach (var subscriber in subscribers)
             {
                 await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message);
                 _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
-            }*/
+            }
         }
 
-        private string GenerateMessage(List<DateTime> dates)
+        private string GenerateMessage(List<DateTime> dates, string code)
         {
-            return $"Доступные даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}";
+            var subscriptionName = string.Empty;
+            foreach (var el in BialaCodeMapping.buttonCodeMapping)
+            {
+                if (string.Equals(el.Value, code))
+                {
+                    subscriptionName = el.Key;
+                    break;
+                }
+            }
+
+            return $"{subscriptionName}. Доступные даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}";
         }
     }
 }

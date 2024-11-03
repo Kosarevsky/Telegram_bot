@@ -29,7 +29,7 @@ namespace Services.Services
 
             _mapper = config.CreateMapper();
         }
-        public async void Save(List<DateTime> dates, string code)
+        public async Task SaveAsync(List<DateTime> dates, string code)
         {
             var op = new ExecutionModel
             {

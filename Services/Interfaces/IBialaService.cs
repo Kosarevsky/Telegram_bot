@@ -2,6 +2,6 @@
 {
     public interface IBialaService
     {
-        void Save(List<DateTime> dates, string code);
+        Task SaveAsync(List<DateTime> dates, string code);
     }
 }

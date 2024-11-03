@@ -31,29 +31,28 @@ namespace NotifyKP_bot.Services
 
             using (var driver = new ChromeDriver(options))
             {
-                driver.Navigate().GoToUrl(url); //https://bezkolejki.eu/luwbb/
+                driver.Navigate().GoToUrl(url);
+                await Task.Delay(100);
 
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
                 await Task.Delay(1500);
                 try
                 {
-                    var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
-                    var btn = listOperacja2.FindElements(By.TagName("button")).FirstOrDefault();
-                    btn?.Click();
-
                     await Task.Delay(1000);
-                    await ErrorCaptchaAsync(driver, btn.Text, 5);
                     wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
 
-                    listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
+                    var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
                     var buttons = listOperacja2.FindElements(By.TagName("button"));
 
-                    foreach (var button in buttons)
+                    for (int i = 0; i < buttons.Count; i++)
                     {
-                        //await Task.Delay(1500);
-                        ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                         await Task.Delay(500);
-                        button.Click();
+                        listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
+                        buttons = listOperacja2.FindElements(By.TagName("button"));
+                        //await Task.Delay(1500);
+                        ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", buttons[i]);
+                        await Task.Delay(500);
+                        buttons[i].Click();
                         //wait.Until(d => d.FindElement(By.ClassName("loading-complete-indicator"))); // замените на класс или элемент, который появляется после загрузки
                         await Task.Delay(1500);
                         wait.Until(d =>
@@ -62,9 +61,9 @@ namespace NotifyKP_bot.Services
                             return loadingElement.GetCssValue("display") == "none";
                         });
 
-                        await ErrorCaptchaAsync(driver, button.Text, 5);
+                        await ErrorCaptchaAsync(driver, buttons[i].Text, 5);
                         var buttonDates = CollectAvailableDates(driver, wait);
-                        SaveDatesToDatabase(buttonDates, button.Text);
+                        await SaveDatesToDatabase(buttonDates, buttons[i].Text);
                     }
                 }
                 catch (WebDriverTimeoutException)
@@ -102,22 +101,22 @@ namespace NotifyKP_bot.Services
                     continue; 
                 }
 
-                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+/*                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                 await Task.Delay(1300);
-                button.Click();
+                button.Click();*/
                 await Task.Delay(1000 * attempt); 
             }
 
             _logger.LogError("Failed to bypass captcha after maximum attempts.");
         }
 
-        private void SaveDatesToDatabase(List<DateTime> dates, string buttonName)
+        private async Task  SaveDatesToDatabase(List<DateTime> dates, string buttonName)
         {
             if (dates != null && dates.Any())
             {
                 if (BialaCodeMapping.buttonCodeMapping.TryGetValue(buttonName, out var buttonCode))
                 {
-                    _bialaService.Save(dates, buttonCode); 
+                    await _bialaService.SaveAsync(dates, buttonCode); 
                     _logger.LogInformation($"Save date to {buttonName}, {buttonCode}");
                     _ = _eventPublisher.PublishDatesSavedAsync(buttonCode, dates);
                     _logger.LogInformation("Subscribed to DatesSaved event.");
