@@ -18,7 +18,8 @@ namespace Services.Services
             _telegramBotService = telegramBotService;
             _userService = userService;
 
-            //eventPublisher.DatesSaved += OnDatesSavedAsync;
+            eventPublisher.DatesSaved += OnDatesSavedAsync;
+            _logger.LogWarning("***************** NotificationService initialized.");
         }
 
         public async Task OnDatesSavedAsync(string code, List<DateTime> dates)
@@ -28,30 +29,14 @@ namespace Services.Services
 
         public async Task NotificationSend(string code, List<DateTime> dates)
         {
+/*            var subscribers = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
+            var message = GenerateMessage(dates);*/
 
-
-            // Найдите пользователей, выбравших город Biala
-            /*            var users = await _context.Users
-                            .Where(u => u.SelectedCity == city)
-                            .ToListAsync();
-
-                        foreach (var user in users)
-                        {
-                            foreach (var date in dates)
-                            {
-                                var message = $"Доступна дата для {city}: {date.ToShortDateString()}";
-                                await _telegramBotClient.SendTextMessageAsync(user.ChatId, message);
-                            }
-                        }*/
-
-            var subscribers = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
-            var message = GenerateMessage(dates);
-
-            foreach (var subscriber in subscribers)
+/*            foreach (var subscriber in subscribers)
             {
                 await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message);
                 _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
-            }
+            }*/
         }
 
         private string GenerateMessage(List<DateTime> dates)

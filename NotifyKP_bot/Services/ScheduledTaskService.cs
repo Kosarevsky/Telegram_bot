@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NotifyKP_bot.Interfaces;
+using Services.Interfaces;
 
 namespace NotifyKP_bot.Services
 {
@@ -9,15 +10,18 @@ namespace NotifyKP_bot.Services
     {
         private readonly ILogger<ScheduledTaskService> _logger;
         private readonly IBrowserAutomationService _browserAutomationService;
+        private readonly INotificationService _notificationService;
         private Timer _timer = null!;
         private readonly int _interval;
         public ScheduledTaskService(
             ILogger<ScheduledTaskService> logger, 
             IBrowserAutomationService browserAutomationService, 
-            IConfiguration configuration)
+            IConfiguration configuration,
+            INotificationService notificationService)
         {
             _logger = logger;
             _browserAutomationService = browserAutomationService;
+            _notificationService = notificationService;
 
             var bialaTaskScheduled = configuration["ScheduledTask:Biala"];
             if (!int.TryParse(bialaTaskScheduled, out _interval) || _interval <= 0)

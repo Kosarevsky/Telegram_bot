@@ -20,7 +20,10 @@ namespace NotifyKP_bot
         public static async Task Main(string[] args)
         {
             var host = CreateHostBuilder(args).Build();
-            //await RunAsync(host.Services);
+
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Host has been built successfully.");
+
             await host.RunAsync();
         }
 
@@ -40,17 +43,10 @@ namespace NotifyKP_bot
                         throw new InvalidOperationException("Bot token is not configured.");
                     }
 
+
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
 
                     services.AddSingleton<IEventPublisher, EventPublisher>();
-                    services.AddScoped<IUnitOfWork, EntityUnitOfWork>();
-                    services.AddDbContext<BotContext>(options =>
-                        options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
-
-                    services.AddTransient<IBialaService, BialaService>();
-                    services.AddTransient<ITelegramBotService, TelegramBotService>();
-
-
                     services.AddSingleton<INotificationService>(provider =>
                     {
                         var logger = provider.GetRequiredService<ILogger<NotificationService>>();
@@ -59,9 +55,16 @@ namespace NotifyKP_bot
                         var userService = provider.GetRequiredService<IUserService>();
 
                         var notificationService = new NotificationService(logger, telegramBotService, eventPublisher, userService);
-                        eventPublisher.DatesSaved += notificationService.OnDatesSavedAsync;
+                        //eventPublisher.DatesSaved += notificationService.OnDatesSavedAsync;
+                        logger.LogWarning("*** NotificationService registered.");
                         return notificationService;
                     });
+                    services.AddScoped<IUnitOfWork, EntityUnitOfWork>();
+                    services.AddDbContext<BotContext>(options =>
+                        options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
+
+                    services.AddTransient<IBialaService, BialaService>();
+                    services.AddTransient<ITelegramBotService, TelegramBotService>();
 
                     services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
@@ -69,18 +72,5 @@ namespace NotifyKP_bot
                     services.AddHostedService<ScheduledTaskService>();
                     services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
                 });
-
-        private static async Task RunAsync(IServiceProvider services)
-        {
-            var browserAutomationService = services.GetRequiredService<IBrowserAutomationService>();
-            try
-            {
-                await browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
-            }
-            catch (Exception err)
-            {
-                Console.WriteLine($"Error: {err.Message}");
-            }
-        }
     }
 }

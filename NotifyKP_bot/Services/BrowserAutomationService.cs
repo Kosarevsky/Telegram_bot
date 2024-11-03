@@ -41,6 +41,7 @@ namespace NotifyKP_bot.Services
                     var btn = listOperacja2.FindElements(By.TagName("button")).FirstOrDefault();
                     btn?.Click();
 
+                    await Task.Delay(1000);
                     await ErrorCaptchaAsync(driver, btn.Text, 5);
                     wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
 
@@ -54,7 +55,7 @@ namespace NotifyKP_bot.Services
                         await Task.Delay(500);
                         button.Click();
                         //wait.Until(d => d.FindElement(By.ClassName("loading-complete-indicator"))); // замените на класс или элемент, который появляется после загрузки
-                        await Task.Delay(500);
+                        await Task.Delay(1500);
                         wait.Until(d =>
                         {
                             var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
@@ -108,7 +109,6 @@ namespace NotifyKP_bot.Services
             }
 
             _logger.LogError("Failed to bypass captcha after maximum attempts.");
-            //throw new InvalidOperationException("Captcha bypass failed after maximum attempts.");
         }
 
         private void SaveDatesToDatabase(List<DateTime> dates, string buttonName)
