@@ -112,7 +112,7 @@ namespace Services.Services
                             {
                                 if (user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
                                 {
-                                    await _userService.DeleteSubsription(callbackQuery.Message.Chat.Id, selectedButton);
+                                    await _userService.DeleteSubscription(callbackQuery.Message.Chat.Id, selectedButton);
                                     await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
                                         $"Вы отписались от уведомления {el.Key}");
                                 }
@@ -173,10 +173,11 @@ namespace Services.Services
             }
         }
 
-        public async Task SendTextMessage(long TelegramUserId, string message)
+        public async Task SendTextMessage(long telegramUserId, string message, string code, List<DateTime> dates)
         {
-            await _botClient.SendTextMessageAsync(TelegramUserId, message);
-            _logger.LogInformation($"Message sent to user {TelegramUserId} message: {message}");
+            await _botClient.SendTextMessageAsync(telegramUserId, message);
+            await _userService.SaveSubscription(telegramUserId, code, dates);
+            _logger.LogInformation($"Message sent to user {telegramUserId} message: {message}");
         }
 
 

@@ -34,36 +34,46 @@ namespace NotifyKP_bot.Services
                 driver.Navigate().GoToUrl(url);
                 await Task.Delay(100);
 
-                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
                 await Task.Delay(1500);
                 try
                 {
                     await Task.Delay(1000);
                     wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
 
-                    var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
-                    var buttons = listOperacja2.FindElements(By.TagName("button"));
-
-                    for (int i = 0; i < buttons.Count; i++)
+                    for (int i = 0; i < 5; i++) 
                     {
-                        await Task.Delay(500);
-                        listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
-                        buttons = listOperacja2.FindElements(By.TagName("button"));
-                        //await Task.Delay(1500);
-                        ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", buttons[i]);
-                        await Task.Delay(500);
-                        buttons[i].Click();
-                        //wait.Until(d => d.FindElement(By.ClassName("loading-complete-indicator"))); // замените на класс или элемент, который появляется после загрузки
-                        await Task.Delay(1500);
-                        wait.Until(d =>
+                        try
                         {
-                            var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
-                            return loadingElement.GetCssValue("display") == "none";
-                        });
+                            var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
+                            var buttons = listOperacja2.FindElements(By.TagName("button")).ToList(); 
 
-                        await ErrorCaptchaAsync(driver, buttons[i].Text, 5);
-                        var buttonDates = CollectAvailableDates(driver, wait);
-                        await SaveDatesToDatabase(buttonDates, buttons[i].Text);
+                            foreach (var button in buttons)
+                            {
+                                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                                await Task.Delay(500);
+                                button.Click();
+
+                                await Task.Delay(1500);
+                                wait.Until(d =>
+                                {
+                                    var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
+                                    return loadingElement.GetCssValue("display") == "none";
+                                });
+
+                                await ErrorCaptchaAsync(driver, button.Text, 5);  // Если капча, вызовет перезагрузку
+
+                                var buttonDates = CollectAvailableDates(driver, wait);
+                                await SaveDatesToDatabase(buttonDates, button.Text);
+                            }
+
+                            break; 
+                        }
+                        catch (StaleElementReferenceException)
+                        {
+                            _logger.LogInformation("Stale element detected. Refreshing elements.");
+                            await Task.Delay(1000); 
+                        }
                     }
                 }
                 catch (WebDriverTimeoutException)
@@ -71,8 +81,8 @@ namespace NotifyKP_bot.Services
                     _logger.LogInformation("Error: element not found or timeout");
                     throw;
                 }
-
-                finally {
+                finally
+                {
                     driver.Quit();
                 }
             }
@@ -92,7 +102,7 @@ namespace NotifyKP_bot.Services
                 _logger.LogInformation($"Captcha error attempt: {attempt}");
 
                 driver.Navigate().Refresh();
-                await Task.Delay(1000 * attempt);
+                await Task.Delay(3000 * attempt);
 
                 var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
                 if (button == null)
@@ -100,17 +110,13 @@ namespace NotifyKP_bot.Services
                     _logger.LogWarning($"Button with text '{buttonText}' not found after refresh.");
                     continue; 
                 }
-
-/*                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                await Task.Delay(1300);
-                button.Click();*/
                 await Task.Delay(1000 * attempt); 
             }
 
             _logger.LogError("Failed to bypass captcha after maximum attempts.");
         }
 
-        private async Task  SaveDatesToDatabase(List<DateTime> dates, string buttonName)
+        private async Task SaveDatesToDatabase(List<DateTime> dates, string buttonName)
         {
             if (dates != null && dates.Any())
             {

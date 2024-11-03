@@ -13,7 +13,6 @@ namespace Services.Services
         }
         public async Task PublishDatesSavedAsync(string code, List<DateTime> dates)
         {
-            // Добавляем логирование
             _logger.LogInformation($"Publishing dates saved event with code: {code}");
             if (DatesSaved != null)
             {

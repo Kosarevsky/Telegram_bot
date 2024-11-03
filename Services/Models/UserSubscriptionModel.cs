@@ -9,5 +9,6 @@
 
         public string SubscriptionCode { get; set; } = null!;
         public DateTime SubscriptionDateTime { get; set; }
+        public ICollection<UserSubscriptionItemsModel> UserSubscriptionItems { get; set; } = new List<UserSubscriptionItemsModel>();
     }
 }

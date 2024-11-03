@@ -19,7 +19,7 @@ namespace Services.Services
             _telegramBotService = telegramBotService;
             _userService = userService;
 
-            eventPublisher.DatesSaved += OnDatesSavedAsync;
+            //eventPublisher.DatesSaved += OnDatesSavedAsync;
             _logger.LogWarning("***************** NotificationService initialized.");
         }
 
@@ -31,31 +31,42 @@ namespace Services.Services
         public async Task NotificationSend(string code, List<DateTime> dates)
         {
             var subscribers = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
-            var message = GenerateMessage(dates, code);
-
-
-
 
             foreach (var subscriber in subscribers)
             {
-                await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message);
-                _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
+                var subscriptions = subscriber.Subscriptions.Where(s=> string.Equals(code, s.SubscriptionCode));
+
+                foreach (var subscription in subscriptions)
+                {
+                    var sendedDates = subscription.UserSubscriptionItems.Select(x=> x.AvailableDate);
+                    var newDates = dates.Except(sendedDates).ToList();
+                    var missingDates = sendedDates.Except(dates).ToList();
+
+
+                    if (newDates.Any() || missingDates.Any()) { 
+                        var message = GenerateMessage( newDates, missingDates, code);
+                        await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message, code, dates);
+                        _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
+                    }
+
+                }
             }
         }
 
-        private string GenerateMessage(List<DateTime> dates, string code)
+        private string GenerateMessage(List<DateTime> newDates , List<DateTime> missingDates,  string code)
         {
-            var subscriptionName = string.Empty;
-            foreach (var el in BialaCodeMapping.buttonCodeMapping)
-            {
-                if (string.Equals(el.Value, code))
-                {
-                    subscriptionName = el.Key;
-                    break;
-                }
+            var message = BialaCodeMapping.buttonCodeMapping
+                 .FirstOrDefault(el => string.Equals(el.Value, code)).Key ?? string.Empty;
+
+            if (newDates.Any()) {
+                message += $" Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}";  
             }
 
-            return $"{subscriptionName}. Доступные даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}";
+            if (missingDates.Any()) {
+                message += $" Разобрали дату: {string.Join(", ", missingDates.Select(d=>d.ToShortDateString()))}";
+            }
+
+            return message;
         }
     }
 }

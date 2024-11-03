@@ -6,7 +6,7 @@ namespace Data.Interfaces
     {
         Task<IEnumerable<User>> GetAllAsync();
         Task<IEnumerable<User>> GetAllAsync(Expression<Func<User, bool>> predicate);
-        Task SaveSubscriptionAsync(long telegramId, string code);
+        Task SaveSubscriptionAsync(long telegramId, string code, List<DateTime>? dates);
         Task DeleteSubscriptionAsync(long telegramId, string code);
     }
 }

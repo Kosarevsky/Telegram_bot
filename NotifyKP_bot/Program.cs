@@ -54,7 +54,7 @@ namespace NotifyKP_bot
                         var userService = provider.GetRequiredService<IUserService>();
 
                         var notificationService = new NotificationService(logger, telegramBotService, eventPublisher, userService);
-                        //eventPublisher.DatesSaved += notificationService.OnDatesSavedAsync;
+                        eventPublisher.DatesSaved += notificationService.OnDatesSavedAsync;
                         logger.LogWarning("*** NotificationService registered.");
                         return notificationService;
                     });

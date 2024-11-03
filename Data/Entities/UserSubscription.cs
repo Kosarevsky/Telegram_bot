@@ -21,5 +21,7 @@ namespace Data.Entities
 
         [Required]
         public DateTime SubscriptionDateTime { get; set; }
+
+        public ICollection<UserSubscriptionItems> UserSubscriptionItems { get; set; } = new List<UserSubscriptionItems>();
     }
 }
