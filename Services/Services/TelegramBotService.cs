@@ -30,7 +30,7 @@ namespace Services.Services
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Starting Telegram Bot...");
+            _logger.LogWarning("Starting Telegram Bot...");
 
             var offset = 0;
 

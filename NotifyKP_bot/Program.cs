@@ -43,7 +43,6 @@ namespace NotifyKP_bot
                         throw new InvalidOperationException("Bot token is not configured.");
                     }
 
-
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
 
                     services.AddSingleton<IEventPublisher, EventPublisher>();
@@ -64,13 +63,15 @@ namespace NotifyKP_bot
                         options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
 
                     services.AddTransient<IBialaService, BialaService>();
-                    services.AddTransient<ITelegramBotService, TelegramBotService>();
-
+     
                     services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
 
                     services.AddHostedService<ScheduledTaskService>();
-                    services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+                    services.AddSingleton<IScheduledTaskService, ScheduledTaskService>();
+
+                    services.AddHostedService<TelegramBotService>();
+                    services.AddSingleton<ITelegramBotService, TelegramBotService>();
                 });
     }
 }
