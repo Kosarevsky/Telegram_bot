@@ -51,6 +51,5 @@ namespace Services.Services
         {
             await _database.User.DeleteSubscriptionAsync(telegramId, code);
         }
-
     }
 }

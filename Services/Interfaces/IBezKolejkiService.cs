@@ -1,6 +1,6 @@
 ﻿namespace Services.Interfaces
 {
-    public interface IBialaService
+    public interface IBezKolejkiService
     {
         Task SaveAsync(List<DateTime> dates, string code);
     }

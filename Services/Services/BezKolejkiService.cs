@@ -6,13 +6,13 @@ using Services.Models;
 
 namespace Services.Services
 {
-    public class BialaService : IBialaService
+    public class BezKolejkiService : IBezKolejkiService
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
         private readonly ITelegramBotService _notificationService;
 
-        public BialaService(IUnitOfWork database, ITelegramBotService notificationService)
+        public BezKolejkiService(IUnitOfWork database, ITelegramBotService notificationService)
         {
             _database = database;
             _notificationService = notificationService;

@@ -20,7 +20,7 @@ namespace Services.Services
             _userService = userService;
 
             //eventPublisher.DatesSaved += OnDatesSavedAsync;
-            _logger.LogWarning("***************** NotificationService initialized.");
+            _logger.LogWarning("* NotificationService initialized.");
         }
 
         public async Task OnDatesSavedAsync(string code, List<DateTime> dates)
@@ -42,21 +42,18 @@ namespace Services.Services
                     var newDates = dates.Except(sendedDates).ToList();
                     var missingDates = sendedDates.Except(dates).ToList();
 
-
                     if (newDates.Any() || missingDates.Any()) { 
                         var message = GenerateMessage( newDates, missingDates, code);
                         await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message, code, dates);
                         _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
                     }
-
                 }
             }
         }
 
         private string GenerateMessage(List<DateTime> newDates , List<DateTime> missingDates,  string code)
         {
-            var message = BialaCodeMapping.buttonCodeMapping
-                 .FirstOrDefault(el => string.Equals(el.Value, code)).Key ?? string.Empty;
+            var message = CodeMapping.GetKeyByCode(code);
 
             if (newDates.Any()) {
                 message += $" Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}";  

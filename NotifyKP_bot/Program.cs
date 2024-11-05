@@ -62,7 +62,7 @@ namespace BezKolejki_bot
                     services.AddDbContext<BotContext>(options =>
                         options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
 
-                    services.AddTransient<IBialaService, BialaService>();
+                    services.AddTransient<IBezKolejkiService, BezKolejkiService>();
      
                     services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();

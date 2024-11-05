@@ -8,21 +8,20 @@ using Services.Interfaces;
 using Services.Models;
 using System.Text.RegularExpressions;
 
-
 namespace BezKolejki_bot.Services
 {
     public class BrowserAutomationService : IBrowserAutomationService
     {
         private readonly ILogger<BrowserAutomationService> _logger;
-        private readonly IBialaService _bialaService;
+        private readonly IBezKolejkiService _bezKolejkiService;
         private readonly IEventPublisher _eventPublisher;
         private readonly IConfiguration _configuration;
         private readonly int _interval;
 
-        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBialaService bialaService, IEventPublisher eventPublisher, IConfiguration configuration)
+        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBezKolejkiService bezKolejkiService, IEventPublisher eventPublisher, IConfiguration configuration)
         {
             _logger = logger;
-            _bialaService = bialaService;
+            _bezKolejkiService = bezKolejkiService;
             _eventPublisher = eventPublisher;
             _configuration = configuration;
             var timeOutBrowser = configuration["ScheduledTask:TimeOutBrowser"];
@@ -31,8 +30,12 @@ namespace BezKolejki_bot.Services
                 throw new InvalidOperationException("Timeout Task Scheduled interval is not properly configured.");
             }
         }
-        public async Task GetAvailableDateAsync(string url)
+        public async Task GetAvailableDateAsync(List<string> urls)
         {
+            var tasks = urls.Select(url => ProcessSiteAsync(url)).ToList();
+            await Task.WhenAll(tasks);
+        }
+        private async Task ProcessSiteAsync(string url) {
             var options = new ChromeOptions();
             options.AddArgument("--disable-blink-features=AutomationControlled");
             options.AddExcludedArgument("enable-automation");
@@ -115,14 +118,14 @@ namespace BezKolejki_bot.Services
                             var buttonDates = CollectAvailableDates(driver, wait);
 
 
-                            var title = driver.FindElement(By.CssSelector(".navbar-title")).Text;
-                            await SaveDatesToDatabase(buttonDates, button.Text);
+                            var siteName = driver.FindElement(By.CssSelector(".navbar-title")).Text;
+                            await SaveDatesToDatabase(buttonDates, button.Text, siteName);
 
                             success = true;
                         }
-                        catch (StaleElementReferenceException)
+                        catch (StaleElementReferenceException ex)
                         {
-                            _logger.LogInformation("Stale element detected. Retrying for current button.");
+                            _logger.LogInformation($"Stale element detected. Retrying for current button. {ex.Message}");
                             await Task.Delay(1000);
                         }
                     }
@@ -168,15 +171,16 @@ namespace BezKolejki_bot.Services
             _logger.LogError("Failed to bypass captcha after maximum attempts.");
         }
 
-        private async Task SaveDatesToDatabase(List<DateTime> dates, string buttonName)
+        private async Task SaveDatesToDatabase(List<DateTime> dates, string buttonName, string siteName)
         {
             if (dates != null && dates.Any())
             {
-                if (BialaCodeMapping.buttonCodeMapping.TryGetValue(buttonName, out var buttonCode))
+                var code = CodeMapping.GetValueByKey(buttonName);
+                if (!string.IsNullOrEmpty(code))
                 {
-                    await _bialaService.SaveAsync(dates, buttonCode); 
-                    _logger.LogInformation($"Save date to {buttonName}, {buttonCode}");
-                    _ = _eventPublisher.PublishDatesSavedAsync(buttonCode, dates);
+                    await _bezKolejkiService.SaveAsync(dates, code); 
+                    _logger.LogInformation($"Save date to {code}, {code}");
+                    await _eventPublisher.PublishDatesSavedAsync(code, dates);
                     _logger.LogInformation("Subscribed to DatesSaved event.");
                 }
                 else

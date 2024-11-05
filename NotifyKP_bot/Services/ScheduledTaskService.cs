@@ -45,7 +45,12 @@ namespace BezKolejki_bot.Services
                 _logger.LogInformation("Executing scheduled task");
                 try
                 {
-                    await _browserAutomationService.GetAvailableDateAsync("https://bezkolejki.eu/luwbb/");
+                    var urls = new List<string>() 
+                    {
+                        //"https://bezkolejki.eu/luwbb/",
+                        "https://uw.bezkolejki.eu/ouw"
+                    };
+                    await _browserAutomationService.GetAvailableDateAsync(urls);
                 }
                 catch (Exception ex)
                 {
