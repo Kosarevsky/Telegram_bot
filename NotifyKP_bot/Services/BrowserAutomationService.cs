@@ -87,7 +87,6 @@ namespace BezKolejki_bot.Services
                         try
                         {
                             cancellationToken.ThrowIfCancellationRequested();
-                            // Обновляем список кнопок на каждой итерации
                             var currentButtons = driver.FindElement(By.Id("Operacja2"))
                                                        .FindElements(By.TagName("button"))
                                                        .ToList();
@@ -114,6 +113,9 @@ namespace BezKolejki_bot.Services
                             await ErrorCaptchaAsync(driver, button.Text, 5);
 
                             var buttonDates = CollectAvailableDates(driver, wait);
+
+
+                            var title = driver.FindElement(By.CssSelector(".navbar-title")).Text;
                             await SaveDatesToDatabase(buttonDates, button.Text);
 
                             success = true;
@@ -138,7 +140,7 @@ namespace BezKolejki_bot.Services
             }
         }
 
-            private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int maxAttempts)
+        private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int maxAttempts)
         {
             var attempt = 0;
             while (attempt < maxAttempts)
@@ -158,9 +160,9 @@ namespace BezKolejki_bot.Services
                 if (button == null)
                 {
                     _logger.LogWarning($"Button with text '{buttonText}' not found after refresh.");
-                    continue; 
+                    continue;
                 }
-                await Task.Delay(1000 * attempt); 
+                await Task.Delay(1000 * attempt);
             }
 
             _logger.LogError("Failed to bypass captcha after maximum attempts.");

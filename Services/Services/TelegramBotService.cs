@@ -63,7 +63,7 @@ namespace Services.Services
         {
             var selectedButton = callbackQuery.Data;
             var userId = callbackQuery.From.Id;
-            _logger.LogInformation($"User selected city: {selectedButton}");
+            _logger.LogInformation($"User {userId} selected button: {selectedButton}");
 
             switch (selectedButton)
             {
@@ -173,7 +173,8 @@ namespace Services.Services
                     new []
                     {
                         InlineKeyboardButton.WithCallbackData("Gdansk", "Gdansk"),
-                        InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska")
+                        InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska"),
+                        InlineKeyboardButton.WithCallbackData("Opole", "Opole")
                     }
                 });
 
