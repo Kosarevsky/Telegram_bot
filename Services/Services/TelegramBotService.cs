@@ -97,28 +97,45 @@ namespace Services.Services
                 case "/Biala08":
                 case "/Biala09":
 
-                    foreach(var el in BialaCodeMapping.buttonCodeMapping)
-                    {
-                        if (string.Equals(el.Value, selectedButton)) {
-                            var users = await _userService.GetAllAsync(u => u.TelegramUserId == callbackQuery.From.Id);
-                            var user = users.FirstOrDefault();
-                            if (user == null || (user != null && !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton)))
+                    var nameSubscription = BialaCodeMapping.buttonCodeMapping.FirstOrDefault(s => string.Equals(s.Value, selectedButton)).Key ?? string.Empty;
+                    if (!string.IsNullOrEmpty(nameSubscription)) {
+                        var users = await _userService.GetAllAsync(u => u.TelegramUserId == callbackQuery.From.Id);
+                        var user = users.FirstOrDefault();
+
+                        if (user == null || !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
+                        {
+                            await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
+                            await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                $"Вы подписались на уведомление \n{nameSubscription}");
+                        }
+                        else {
+                            await _userService.DeleteSubscription(callbackQuery.Message.Chat.Id, selectedButton);
+                            await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                $"Вы отписались от уведомления \n{nameSubscription}");
+                        }
+                        var listSubscription = new List<string>();
+                        var oldSubscription = user?.Subscriptions.Where(s => s.SubscriptionCode != selectedButton).ToList();
+                        foreach (var el in oldSubscription) {
+                            if (BialaCodeMapping.buttonCodeMapping.TryGetValue(el.SubscriptionCode, out var subscriptionName))
                             {
-                                await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
-                                await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
-                                    $"Вы подписались на уведомление {el.Key}");
+                                listSubscription.Add(subscriptionName);
                             }
-                            else
-                            {
-                                if (user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
-                                {
-                                    await _userService.DeleteSubscription(callbackQuery.Message.Chat.Id, selectedButton);
-                                    await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
-                                        $"Вы отписались от уведомления {el.Key}");
-                                }
-                            }
+                            
+                        }
+
+                        if (oldSubscription != null && oldSubscription.Any())
+                        {
+                            var subscriptionsList = oldSubscription
+                                .Select(el => BialaCodeMapping.buttonCodeMapping.FirstOrDefault(s => string.Equals(s.Value, el.SubscriptionCode)).Key)
+                                .Where(subscription => !string.IsNullOrEmpty(subscription))
+                                .ToList();
+
+                            var subscriptionsMessage = string.Join(Environment.NewLine, subscriptionsList);
+                            await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                $"Так же вы подписаны на: \n{subscriptionsMessage}");
                         }
                     }
+
 
                     break;
                 default:
@@ -158,7 +175,6 @@ namespace Services.Services
                         InlineKeyboardButton.WithCallbackData("Gdansk", "Gdansk"),
                         InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska")
                     }
-                    // Можно добавить другие города аналогично
                 });
 
                 await _botClient.SendTextMessageAsync(

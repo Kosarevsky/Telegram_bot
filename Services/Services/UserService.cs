@@ -42,7 +42,7 @@ namespace Services.Services
             return _mapper.Map<List<UserModel>>(users);
         }
 
-/        public async Task SaveSubscription(long telegramId, string code, List<DateTime>? dates = null)
+        public async Task SaveSubscription(long telegramId, string code, List<DateTime>? dates = null)
         {
            await _database.User.SaveSubscriptionAsync(telegramId, code, dates);
         }

@@ -25,55 +25,73 @@ namespace NotifyKP_bot.Services
         public async Task GetAvailableDateAsync(string url)
         {
             var options = new ChromeOptions();
-            // options.AddArgument("--headless");  
-            //options.AddArgument("--auto-open-devtools-for-tabs");
+            options.AddArgument("--disable-blink-features=AutomationControlled");
+            options.AddExcludedArgument("enable-automation");
+            options.AddAdditionalOption("useAutomationExtension", false); 
+            options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
+
             var dates = new List<DateTime>();
 
             using (var driver = new ChromeDriver(options))
             {
                 driver.Navigate().GoToUrl(url);
-                await Task.Delay(100);
+                await Task.Delay(1500);
 
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                await Task.Delay(1500);
                 try
                 {
-                    await Task.Delay(1000);
                     wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
 
-                    for (int i = 0; i < 5; i++) 
-                    {
-                        try
-                        {
-                            var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
-                            var buttons = listOperacja2.FindElements(By.TagName("button")).ToList(); 
+                    var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
+                    var buttonTexts = listOperacja2.FindElements(By.TagName("button")).Select(b => b.Text).ToList();
 
-                            foreach (var button in buttons)
+                    int index = 0;
+                    while (index < buttonTexts.Count)
+                    {
+                        var buttonText = buttonTexts[index];
+                        bool success = false;
+                        while (!success)
+                        {
+                            try
                             {
+                                // Обновляем список кнопок на каждой итерации
+                                var currentButtons = driver.FindElement(By.Id("Operacja2"))
+                                                           .FindElements(By.TagName("button"))
+                                                           .ToList();
+                                var button = currentButtons.FirstOrDefault(b => b.Text == buttonText);
+                                if (button == null)
+                                {
+                                    _logger.LogWarning($"Button with text '{buttonText}' not found. Skipping.");
+                                    success = true;
+                                    continue;
+                                }
+
+                                //await Task.Delay(200);
                                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                                await Task.Delay(500);
+                                await Task.Delay(1000);
                                 button.Click();
 
-                                await Task.Delay(1500);
+                                await Task.Delay(500);
                                 wait.Until(d =>
                                 {
                                     var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
                                     return loadingElement.GetCssValue("display") == "none";
                                 });
 
-                                await ErrorCaptchaAsync(driver, button.Text, 5);  // Если капча, вызовет перезагрузку
+                                await ErrorCaptchaAsync(driver, button.Text, 5);
 
                                 var buttonDates = CollectAvailableDates(driver, wait);
                                 await SaveDatesToDatabase(buttonDates, button.Text);
-                            }
 
-                            break; 
+                                success = true;
+                            }
+                            catch (StaleElementReferenceException)
+                            {
+                                _logger.LogInformation("Stale element detected. Retrying for current button.");
+                                await Task.Delay(1000);
+                            }
                         }
-                        catch (StaleElementReferenceException)
-                        {
-                            _logger.LogInformation("Stale element detected. Refreshing elements.");
-                            await Task.Delay(1000); 
-                        }
+                        index++;
                     }
                 }
                 catch (WebDriverTimeoutException)
@@ -87,6 +105,7 @@ namespace NotifyKP_bot.Services
                 }
             }
         }
+
 
         private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int maxAttempts)
         {
