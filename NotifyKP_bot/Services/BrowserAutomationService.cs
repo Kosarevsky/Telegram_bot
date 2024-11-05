@@ -1,5 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-using NotifyKP_bot.Interfaces;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using BezKolejki_bot.Interfaces;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
@@ -8,19 +9,27 @@ using Services.Models;
 using System.Text.RegularExpressions;
 
 
-namespace NotifyKP_bot.Services
+namespace BezKolejki_bot.Services
 {
     public class BrowserAutomationService : IBrowserAutomationService
     {
         private readonly ILogger<BrowserAutomationService> _logger;
         private readonly IBialaService _bialaService;
         private readonly IEventPublisher _eventPublisher;
+        private readonly IConfiguration _configuration;
+        private readonly int _interval;
 
-        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBialaService bialaService, IEventPublisher eventPublisher)
+        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBialaService bialaService, IEventPublisher eventPublisher, IConfiguration configuration)
         {
             _logger = logger;
             _bialaService = bialaService;
             _eventPublisher = eventPublisher;
+            _configuration = configuration;
+            var timeOutBrowser = configuration["ScheduledTask:TimeOutBrowser"];
+            if (!int.TryParse(timeOutBrowser, out _interval) || _interval <= 0)
+            {
+                throw new InvalidOperationException("Timeout Task Scheduled interval is not properly configured.");
+            }
         }
         public async Task GetAvailableDateAsync(string url)
         {
@@ -30,84 +39,106 @@ namespace NotifyKP_bot.Services
             options.AddAdditionalOption("useAutomationExtension", false); 
             options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
 
-            var dates = new List<DateTime>();
-
-            using (var driver = new ChromeDriver(options))
+            var cancellationTokenSource = new CancellationTokenSource();
+            var timer = new Timer(state =>
             {
-                driver.Navigate().GoToUrl(url);
-                await Task.Delay(1500);
+                _logger.LogWarning("Browser automation timed out. Closing the browser.");
+                cancellationTokenSource.Cancel();
+            }, null, TimeSpan.FromSeconds(_interval), Timeout.InfiniteTimeSpan);
 
-                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                try
+            try
+            {
+                using (var driver = new ChromeDriver(options))
                 {
-                    wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
+                    driver.Navigate().GoToUrl(url);
+                    await Task.Delay(1500);
 
-                    var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
-                    var buttonTexts = listOperacja2.FindElements(By.TagName("button")).Select(b => b.Text).ToList();
-
-                    int index = 0;
-                    while (index < buttonTexts.Count)
-                    {
-                        var buttonText = buttonTexts[index];
-                        bool success = false;
-                        while (!success)
-                        {
-                            try
-                            {
-                                // Обновляем список кнопок на каждой итерации
-                                var currentButtons = driver.FindElement(By.Id("Operacja2"))
-                                                           .FindElements(By.TagName("button"))
-                                                           .ToList();
-                                var button = currentButtons.FirstOrDefault(b => b.Text == buttonText);
-                                if (button == null)
-                                {
-                                    _logger.LogWarning($"Button with text '{buttonText}' not found. Skipping.");
-                                    success = true;
-                                    continue;
-                                }
-
-                                //await Task.Delay(200);
-                                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                                await Task.Delay(1000);
-                                button.Click();
-
-                                await Task.Delay(500);
-                                wait.Until(d =>
-                                {
-                                    var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
-                                    return loadingElement.GetCssValue("display") == "none";
-                                });
-
-                                await ErrorCaptchaAsync(driver, button.Text, 5);
-
-                                var buttonDates = CollectAvailableDates(driver, wait);
-                                await SaveDatesToDatabase(buttonDates, button.Text);
-
-                                success = true;
-                            }
-                            catch (StaleElementReferenceException)
-                            {
-                                _logger.LogInformation("Stale element detected. Retrying for current button.");
-                                await Task.Delay(1000);
-                            }
-                        }
-                        index++;
-                    }
+                    var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+                    await ExecuteBrowserAutomation(driver, wait, cancellationTokenSource.Token);
                 }
-                catch (WebDriverTimeoutException)
-                {
-                    _logger.LogInformation("Error: element not found or timeout");
-                    throw;
-                }
-                finally
-                {
-                    driver.Quit();
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Browser automation was canceled due to timeout.");
+            }
+            finally
+            {
+                timer.Dispose();
             }
         }
 
+        private async Task ExecuteBrowserAutomation(IWebDriver driver, WebDriverWait wait, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var dates = new List<DateTime>();
+                wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
 
-        private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int maxAttempts)
+                var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
+                var buttonTexts = listOperacja2.FindElements(By.TagName("button")).Select(b => b.Text).ToList();
+
+                int index = 0;
+                while (index < buttonTexts.Count)
+                {
+                    var buttonText = buttonTexts[index];
+                    bool success = false;
+                    while (!success)
+                    {
+                        try
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            // Обновляем список кнопок на каждой итерации
+                            var currentButtons = driver.FindElement(By.Id("Operacja2"))
+                                                       .FindElements(By.TagName("button"))
+                                                       .ToList();
+                            var button = currentButtons.FirstOrDefault(b => b.Text == buttonText);
+                            if (button == null)
+                            {
+                                _logger.LogWarning($"Button with text '{buttonText}' not found. Skipping.");
+                                success = true;
+                                continue;
+                            }
+
+                            //await Task.Delay(200);
+                            ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                            await Task.Delay(1000);
+                            button.Click();
+
+                            await Task.Delay(500);
+                            wait.Until(d =>
+                            {
+                                var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
+                                return loadingElement.GetCssValue("display") == "none";
+                            });
+
+                            await ErrorCaptchaAsync(driver, button.Text, 5);
+
+                            var buttonDates = CollectAvailableDates(driver, wait);
+                            await SaveDatesToDatabase(buttonDates, button.Text);
+
+                            success = true;
+                        }
+                        catch (StaleElementReferenceException)
+                        {
+                            _logger.LogInformation("Stale element detected. Retrying for current button.");
+                            await Task.Delay(1000);
+                        }
+                    }
+                    index++;
+                }
+            }
+            catch (WebDriverTimeoutException)
+            {
+                _logger.LogInformation("Error: element not found or timeout");
+                throw;
+            }
+            finally
+            {
+                driver.Quit();
+            }
+        }
+
+            private async Task ErrorCaptchaAsync(IWebDriver driver, string buttonText, int maxAttempts)
         {
             var attempt = 0;
             while (attempt < maxAttempts)

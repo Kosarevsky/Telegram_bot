@@ -7,13 +7,13 @@ using Data.Context;
 using Data.Interfaces;
 using Data.Repositories;
 using Microsoft.EntityFrameworkCore;
-using NotifyKP_bot.Interfaces;
-using NotifyKP_bot.Services;
+using BezKolejki_bot.Interfaces;
+using BezKolejki_bot.Services;
 using Telegram.Bot;
 using Microsoft.Extensions.Logging;
 
 
-namespace NotifyKP_bot
+namespace BezKolejki_bot
 {
     public class Program
     {

@@ -2,7 +2,8 @@
   "profiles": {
     "NotifyKP_bot": {
       "commandName": "Project",
-      "nativeDebugging": true
+      "nativeDebugging": false,
+      "hotReloadEnabled": false
     }
   }
 }

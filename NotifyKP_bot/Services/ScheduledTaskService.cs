@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using NotifyKP_bot.Interfaces;
+using BezKolejki_bot.Interfaces;
 using Services.Interfaces;
 
-namespace NotifyKP_bot.Services
+namespace BezKolejki_bot.Services
 {
     public class ScheduledTaskService : IHostedService, IDisposable, IScheduledTaskService
     {

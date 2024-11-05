@@ -10,7 +10,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services", "Services\Servic
 		{C980A4A1-2531-404E-9594-046872DA4A2C} = {C980A4A1-2531-404E-9594-046872DA4A2C}
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NotifyKP_bot", "NotifyKP_bot\NotifyKP_bot.csproj", "{0CA50553-4BCC-453D-B0C2-72C919B88139}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BezKolejki_bot", "NotifyKP_bot\BezKolejki_bot.csproj", "{0CA50553-4BCC-453D-B0C2-72C919B88139}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
