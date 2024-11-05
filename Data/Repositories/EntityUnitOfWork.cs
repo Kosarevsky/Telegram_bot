@@ -15,8 +15,7 @@ namespace Data.Repositories
             _userRepository ?? (_userRepository = new UserRepository(_context));
         public IUserSubscriptionRepository UserSubscription =>
             _userSubscriptionRepository ?? (_userSubscriptionRepository = new UserSubscriptionRepository(_context));
-        public IExecutionRepository ExecutionRepository =>
-            _executionRepository ?? (_executionRepository = new ExecutionRepository(_context));
+
 
         public async Task<DateTime> GetCurrentDateTimeFromSQLServer() => await _context.GetCurrentDateTimeFromServerAsync();
 
@@ -25,7 +24,7 @@ namespace Data.Repositories
             _context = context;
         }
 
-        public void Save()
+        public async Task SaveAsync()
         {
             _context.SaveChanges();
         }

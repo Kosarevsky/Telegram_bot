@@ -42,7 +42,6 @@ namespace Data.Repositories
             {
                 user = new User { TelegramUserId = telegramId };
                 _context.Users.Add(user);
-                await _context.SaveChangesAsync();
             }
 
             var subscription = user.Subscriptions.FirstOrDefault(s => s.SubscriptionCode == code);
@@ -55,7 +54,6 @@ namespace Data.Repositories
                     SubscriptionDateTime = await _context.GetCurrentDateTimeFromServerAsync()
                 };
                 user.Subscriptions.Add(subscription);
-                await _context.SaveChangesAsync();
             }
 
             if (dates != null && dates.Any()) {
@@ -68,28 +66,29 @@ namespace Data.Repositories
                             UserSubscriptionId = subscription.Id
                         });
                     }
-                    await _context.SaveChangesAsync();
                 }
-
             }
+            
+            await _context.SaveChangesAsync();
         }
         public async Task DeleteSubscriptionAsync(long telegramId, string code)
+        {
+            var user = await _context.Users
+                .Include(s => s.Subscriptions)
+                .ThenInclude(d => d.UserSubscriptionItems)
+                .FirstOrDefaultAsync(u => u.TelegramUserId == telegramId);
+            if (user != null)
             {
-                var user = await _context.Users
-                    .Include(s => s.Subscriptions)
-                    .ThenInclude(d => d.UserSubscriptionItems)
-                    .FirstOrDefaultAsync(u => u.TelegramUserId == telegramId);
-                if (user != null) {
-
-                    var userSubscriptions = user.Subscriptions.FirstOrDefault(s => s.SubscriptionCode == code);
-                    if (userSubscriptions != null) {
-                        userSubscriptions.UserSubscriptionItems.Clear();
-                        user.Subscriptions.Remove(userSubscriptions);
-                        await _context.SaveChangesAsync();
-                    }
+                var userSubscriptions = user.Subscriptions.FirstOrDefault(s => s.SubscriptionCode == code);
+                if (userSubscriptions != null)
+                {
+                    userSubscriptions.UserSubscriptionItems.Clear();
+                    user.Subscriptions.Remove(userSubscriptions);
+                    await _context.SaveChangesAsync();
                 }
             }
-
         }
+
+    }
 
 }
