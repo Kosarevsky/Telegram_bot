@@ -101,12 +101,12 @@ namespace BezKolejki_bot.Services
                                 continue;
                             }
 
-                            //await Task.Delay(200);
+                            await Task.Delay(500);
                             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                             await Task.Delay(1000);
                             button.Click();
 
-                            await Task.Delay(500);
+                            await Task.Delay(1000);
                             wait.Until(d =>
                             {
                                 var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));

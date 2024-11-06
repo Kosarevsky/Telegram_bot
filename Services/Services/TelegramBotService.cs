@@ -67,6 +67,12 @@ namespace Services.Services
 
             switch (selectedButton)
             {
+                case "Gdansk":
+                    await _botClient.SendTextMessageAsync(
+                        callbackQuery.Message.Chat.Id,
+                        "Гданьск скоро будет. Вы может ускорить процесс купив админу чашечку кофе."
+                        );
+                    break;
                 case "Biala Podlaska": 
                     var questionKeyboard = new InlineKeyboardMarkup(new[]
                     {
@@ -146,15 +152,15 @@ namespace Services.Services
                     await _userService.DeleteSubscription(callbackQuery.Message.Chat.Id, selectedButton);
                     await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, $"Вы отписались от уведомления \n{nameSubscription}");
                 }
-
-                await SendSubscriptionList(callbackQuery.Message.Chat.Id, user, selectedButton);
             }
         }
 
-        private async Task SendSubscriptionList(long chatId, UserModel user, string selectedButton)
+        private async Task SendSubscriptionList(long telegramUserId)
         {
             var listSubscription = new List<string>();
-            var oldSubscription = user?.Subscriptions.Where(s => s.SubscriptionCode != selectedButton).ToList();
+            var users = await _userService.GetAllAsync(u => u.TelegramUserId == telegramUserId);
+            var user = users.FirstOrDefault();
+            var oldSubscription = user?.Subscriptions.ToList();
 
             foreach (var el in oldSubscription)
             {
@@ -168,7 +174,7 @@ namespace Services.Services
             if (oldSubscription != null && oldSubscription.Any())
             {
                 var subscriptionsMessage = string.Join(Environment.NewLine, listSubscription);
-                await _botClient.SendTextMessageAsync(chatId, $"Так же вы подписаны на: \n{subscriptionsMessage}");
+                await _botClient.SendTextMessageAsync(telegramUserId, $"Перечень активных подписок:  \n{subscriptionsMessage}");
             }
         }
         public static string TruncateText(string text, int maxLength)
@@ -187,7 +193,7 @@ namespace Services.Services
 
             var mainKeyboard = new ReplyKeyboardMarkup(new[]
             {
-                new KeyboardButton[] { "Menu" }
+                new KeyboardButton[] { "Menu" , "Подписки"},
             })
             {
                 ResizeKeyboard = true,
@@ -222,6 +228,9 @@ namespace Services.Services
             {
                 await _botClient.SendTextMessageAsync(message.Chat.Id, $"Current date: {DateTime.Now}", replyMarkup: mainKeyboard);
             }
+            else if (message.Text == "Подписки") {
+                await SendSubscriptionList(message.Chat.Id);
+            }
         }
 
         public async Task SendTextMessage(long telegramUserId, string message, string code, List<DateTime> dates)
@@ -236,9 +245,6 @@ namespace Services.Services
             {
                 _logger.LogError($"Failed to send message to user {telegramUserId}: {ex.Message}");
             }
-
-
-
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
