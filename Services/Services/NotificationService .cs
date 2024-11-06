@@ -44,8 +44,15 @@ namespace Services.Services
 
                     if (newDates.Any() || missingDates.Any()) { 
                         var message = GenerateMessage( newDates, missingDates, code);
-                        await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message, code, dates);
-                        _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
+                        try
+                        {
+                            await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message, code, dates);
+                            _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, $"Failed to send notification to user {subscriber.TelegramUserId} for code {code}");
+                        }
                     }
                 }
             }
@@ -53,14 +60,14 @@ namespace Services.Services
 
         private string GenerateMessage(List<DateTime> newDates , List<DateTime> missingDates,  string code)
         {
-            var message = CodeMapping.GetKeyByCode(code);
+            var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {CodeMapping.GetKeyByCode(code)}\n";
 
             if (newDates.Any()) {
-                message += $" Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}";  
+                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}";  
             }
 
             if (missingDates.Any()) {
-                message += $" Разобрали дату: {string.Join(", ", missingDates.Select(d=>d.ToShortDateString()))}";
+                message += $"Разобрали дату: {string.Join(", ", missingDates.Select(d=>d.ToShortDateString()))}";
             }
 
             return message;

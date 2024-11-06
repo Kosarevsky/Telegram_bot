@@ -6,6 +6,7 @@ using Services.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Telegram.Bot.Types.ReplyMarkups;
 using Services.Models;
+using Telegram.Bot.Exceptions;
 
 namespace Services.Services
 {
@@ -160,7 +161,7 @@ namespace Services.Services
                 var subscriptionName = $"{CodeMapping.GetSiteIdentifierByCode(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
                 if (!string.IsNullOrEmpty(subscriptionName))
                 {
-                    listSubscription.Add(subscriptionName);
+                    listSubscription.Add(TruncateText(subscriptionName,45));
                 }
             }
 
@@ -169,6 +170,15 @@ namespace Services.Services
                 var subscriptionsMessage = string.Join(Environment.NewLine, listSubscription);
                 await _botClient.SendTextMessageAsync(chatId, $"Так же вы подписаны на: \n{subscriptionsMessage}");
             }
+        }
+        public static string TruncateText(string text, int maxLength)
+        {
+            if (string.IsNullOrEmpty(text) || maxLength <= 0)
+                return string.Empty;
+
+            return text.Length > maxLength
+                ? text.Substring(0, maxLength - 3) + "..."
+                : text;
         }
 
         private async Task HandleMessage(Message message)
@@ -216,9 +226,19 @@ namespace Services.Services
 
         public async Task SendTextMessage(long telegramUserId, string message, string code, List<DateTime> dates)
         {
-            await _botClient.SendTextMessageAsync(telegramUserId, message);
-            await _userService.SaveSubscription(telegramUserId, code, dates);
-            _logger.LogInformation($"Message sent to user {telegramUserId} message: {message}");
+            try
+            {
+                await _botClient.SendTextMessageAsync(telegramUserId, message);
+                await _userService.SaveSubscription(telegramUserId, code, dates);
+                _logger.LogInformation($"Message sent to user {telegramUserId} message: {message}");
+            }
+            catch (ApiRequestException ex)
+            {
+                _logger.LogError($"Failed to send message to user {telegramUserId}: {ex.Message}");
+            }
+
+
+
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
