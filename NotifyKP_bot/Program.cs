@@ -45,15 +45,15 @@ namespace BezKolejki_bot
 
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
 
-                    services.AddSingleton<IEventPublisher, EventPublisher>();
+                    services.AddSingleton<IEventPublisherService, EventPublisherService>();
                     services.AddSingleton<INotificationService>(provider =>
                     {
                         var logger = provider.GetRequiredService<ILogger<NotificationService>>();
                         var telegramBotService = provider.GetRequiredService<ITelegramBotService>();
-                        var eventPublisher = provider.GetRequiredService<IEventPublisher>();
+                        var eventPublisher = provider.GetRequiredService<IEventPublisherService>();
                         var userService = provider.GetRequiredService<IUserService>();
-
-                        var notificationService = new NotificationService(logger, telegramBotService, eventPublisher, userService);
+                        var bezKolejkiService = provider.GetRequiredService<IBezKolejkiService>();
+                        var notificationService = new NotificationService(logger, telegramBotService, eventPublisher, userService, bezKolejkiService);
                         eventPublisher.DatesSaved += notificationService.OnDatesSavedAsync;
                         logger.LogWarning("*** NotificationService registered.");
                         return notificationService;

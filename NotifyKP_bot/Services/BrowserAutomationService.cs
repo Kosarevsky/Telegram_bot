@@ -14,11 +14,11 @@ namespace BezKolejki_bot.Services
     {
         private readonly ILogger<BrowserAutomationService> _logger;
         private readonly IBezKolejkiService _bezKolejkiService;
-        private readonly IEventPublisher _eventPublisher;
+        private readonly IEventPublisherService _eventPublisher;
         private readonly IConfiguration _configuration;
         private readonly int _interval;
 
-        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBezKolejkiService bezKolejkiService, IEventPublisher eventPublisher, IConfiguration configuration)
+        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBezKolejkiService bezKolejkiService, IEventPublisherService eventPublisher, IConfiguration configuration)
         {
             _logger = logger;
             _bezKolejkiService = bezKolejkiService;
@@ -117,9 +117,9 @@ namespace BezKolejki_bot.Services
 
                             var buttonDates = CollectAvailableDates(driver, wait);
 
-
                             var siteName = driver.FindElement(By.CssSelector(".navbar-title")).Text;
-                            await SaveDatesToDatabase(buttonDates, button.Text, siteName);
+
+                           await SaveDatesToDatabase(buttonDates, button.Text, siteName);
 
                             success = true;
                         }
@@ -178,9 +178,12 @@ namespace BezKolejki_bot.Services
                 var code = CodeMapping.GetValueByKey(buttonName);
                 if (!string.IsNullOrEmpty(code))
                 {
-                    await _bezKolejkiService.SaveAsync(dates, code); 
+                    var sendedDates = await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(code);
+
+
+                    await _bezKolejkiService.SaveAsync(code, dates); 
                     _logger.LogInformation($"Save date to {code}, {code}");
-                    await _eventPublisher.PublishDatesSavedAsync(code, dates);
+                    await _eventPublisher.PublishDatesSavedAsync(code, dates, sendedDates);
                     _logger.LogInformation("Subscribed to DatesSaved event.");
                 }
                 else

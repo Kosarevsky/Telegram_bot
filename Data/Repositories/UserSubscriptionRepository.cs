@@ -7,25 +7,23 @@ namespace Data.Repositories
 {
     public class UserSubscriptionRepository : IUserSubscriptionRepository
     {
-        private readonly BotContext _notifyKPContext;
+        private readonly BotContext _context;
 
         public UserSubscriptionRepository(BotContext notifyKPContext)
         {
-            _notifyKPContext = notifyKPContext;
+            _context = notifyKPContext;
         }
 
         public async Task SaveUserSubscriptionAsync(long telegramUserId, string code)
         {
-            var user = await _notifyKPContext.Users
+            var user = await _context.Users
                 .Include(u => u.Subscriptions)
                 .FirstOrDefaultAsync(u => u.TelegramUserId == telegramUserId);
             if (user == null)
             {
                 user = new User { TelegramUserId = telegramUserId, Subscriptions = new List<UserSubscription>() };
-                _notifyKPContext.Users.Add(user);
+                _context.Users.Add(user);
             }
-
-
         }
     }
 }

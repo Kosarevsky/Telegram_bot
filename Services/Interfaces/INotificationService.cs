@@ -2,6 +2,6 @@
 {
     public interface INotificationService
     {
-        Task NotificationSend(string code, List<DateTime> dates);
+        Task NotificationSend(string code, List<DateTime> dates, List<DateTime> sendedDates);
     }
 }

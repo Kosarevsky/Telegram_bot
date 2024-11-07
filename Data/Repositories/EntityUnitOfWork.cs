@@ -16,7 +16,6 @@ namespace Data.Repositories
         public IUserSubscriptionRepository UserSubscription =>
             _userSubscriptionRepository ?? (_userSubscriptionRepository = new UserSubscriptionRepository(_context));
 
-
         public async Task<DateTime> GetCurrentDateTimeFromSQLServer() => await _context.GetCurrentDateTimeFromServerAsync();
 
         public EntityUnitOfWork(BotContext context)

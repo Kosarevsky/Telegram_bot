@@ -14,29 +14,25 @@ namespace Data.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<User>> GetAllAsync()
+        public IQueryable<User> GetAllAsync()
         {
-            return await _context.Users
+            return _context.Users
                 .Include(a => a.Subscriptions)
-                .AsNoTracking()
-                .ToListAsync();
+                .AsNoTracking();
         }
 
-        public async Task<IEnumerable<User>> GetAllAsync(Expression<Func<User, bool>> predicate)
+        public IQueryable<User> GetAllAsync(Expression<Func<User, bool>> predicate)
         {
-            return await _context.Users
+            return _context.Users
                 .Include(a => a.Subscriptions)
-                .ThenInclude(d => d.UserSubscriptionItems)
                 .AsNoTracking()
-                .Where(predicate)
-                .ToListAsync();
+                .Where(predicate);
         }
 
-        public async Task SaveSubscriptionAsync(long telegramId, string code, List<DateTime>? dates)
+        public async Task SaveSubscriptionAsync(long telegramId, string code)
         {
             var user = await _context.Users
                 .Include(s => s.Subscriptions)
-                .ThenInclude(d => d.UserSubscriptionItems)
                 .FirstOrDefaultAsync(u => u.TelegramUserId == telegramId);
             if (user == null)
             {
@@ -56,39 +52,22 @@ namespace Data.Repositories
                 user.Subscriptions.Add(subscription);
             }
 
-            if (dates != null && dates.Any()) {
-                subscription.UserSubscriptionItems.Clear();
-                foreach (var date in dates) {
-                    {
-                        subscription.UserSubscriptionItems.Add(new UserSubscriptionItems
-                        {
-                            AvailableDate = date,
-                            UserSubscriptionId = subscription.Id
-                        });
-                    }
-                }
-            }
-            
             await _context.SaveChangesAsync();
         }
         public async Task DeleteSubscriptionAsync(long telegramId, string code)
         {
             var user = await _context.Users
                 .Include(s => s.Subscriptions)
-                .ThenInclude(d => d.UserSubscriptionItems)
                 .FirstOrDefaultAsync(u => u.TelegramUserId == telegramId);
             if (user != null)
             {
                 var userSubscriptions = user.Subscriptions.FirstOrDefault(s => s.SubscriptionCode == code);
                 if (userSubscriptions != null)
                 {
-                    userSubscriptions.UserSubscriptionItems.Clear();
                     user.Subscriptions.Remove(userSubscriptions);
                     await _context.SaveChangesAsync();
                 }
             }
         }
-
     }
-
 }

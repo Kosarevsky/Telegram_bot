@@ -9,50 +9,49 @@ namespace Services.Services
         private readonly ILogger<NotificationService> _logger;
         private readonly IUserService _userService;
         private readonly ITelegramBotService _telegramBotService;
+        private readonly IBezKolejkiService _bezKolejkiService;
 
         public NotificationService(ILogger<NotificationService> logger,
                               ITelegramBotService telegramBotService,
-                              IEventPublisher eventPublisher,
-                              IUserService userService)
+                              IEventPublisherService eventPublisher,
+                              IUserService userService,
+                              IBezKolejkiService bezKolejkiService
+            )
         {
             _logger = logger;
             _telegramBotService = telegramBotService;
             _userService = userService;
+            _bezKolejkiService = bezKolejkiService;
 
             //eventPublisher.DatesSaved += OnDatesSavedAsync;
             _logger.LogWarning("* NotificationService initialized.");
         }
 
-        public async Task OnDatesSavedAsync(string code, List<DateTime> dates)
+        public async Task OnDatesSavedAsync(string code, List<DateTime> dates, List<DateTime> sendedDates)
         {
-            await NotificationSend(code, dates);
+            await NotificationSend(code, dates, sendedDates);
         }
 
-        public async Task NotificationSend(string code, List<DateTime> dates)
+        public async Task NotificationSend(string code, List<DateTime> dates, List<DateTime> sendedDates)
         {
-            var subscribers = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
+            var users = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
 
-            foreach (var subscriber in subscribers)
+            foreach (var user in users)
             {
-                var subscriptions = subscriber.Subscriptions.Where(s=> string.Equals(code, s.SubscriptionCode));
+                var newDates = dates.Except(sendedDates).ToList();
+                var missingDates = sendedDates.Except(dates).ToList();
 
-                foreach (var subscription in subscriptions)
+                if (newDates.Any() || missingDates.Any())
                 {
-                    var sendedDates = subscription.UserSubscriptionItems.Select(x=> x.AvailableDate);
-                    var newDates = dates.Except(sendedDates).ToList();
-                    var missingDates = sendedDates.Except(dates).ToList();
-
-                    if (newDates.Any() || missingDates.Any()) { 
-                        var message = GenerateMessage( newDates, missingDates, code);
-                        try
-                        {
-                            await _telegramBotService.SendTextMessage(subscriber.TelegramUserId, message, code, dates);
-                            _logger.LogInformation($"Notification sent to user {subscriber.TelegramUserId} for code {code}");
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, $"Failed to send notification to user {subscriber.TelegramUserId} for code {code}");
-                        }
+                    var message = GenerateMessage(newDates, missingDates, code);
+                    try
+                    {
+                        await _telegramBotService.SendTextMessage(user.TelegramUserId, message, code, dates);
+                        _logger.LogInformation($"Notification sent to user {user.TelegramUserId} for code {code}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, $"Failed to send notification to user {user.TelegramUserId} for code {code}");
                     }
                 }
             }

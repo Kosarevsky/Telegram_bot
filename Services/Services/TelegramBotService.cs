@@ -34,30 +34,55 @@ namespace Services.Services
 
             var offset = 0;
 
-            var me = await _botClient.GetMeAsync();
-            _logger.LogInformation($"Bot ID: {me.Id}, Bot Name: {me.Username}");
-
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
-                var updates = await _botClient.GetUpdatesAsync(offset, cancellationToken: cancellationToken);
-                foreach (var update in updates)
+                var me = await _botClient.GetMeAsync();
+                _logger.LogInformation($"Bot ID: {me.Id}, Bot Name: {me.Username}");
+
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
+                    try
                     {
-                        if (update?.Message?.Text != null) { 
-                            _logger.LogInformation($"Received message: {update.Message.Text}");
-                            await HandleMessage(update.Message);
+                        var updates = await _botClient.GetUpdatesAsync(offset, cancellationToken: cancellationToken);
+                        foreach (var update in updates)
+                        {
+                            try
+                            {
+                                if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
+                                {
+                                    if (update?.Message?.Text != null)
+                                    {
+                                        _logger.LogInformation($"Received message: {update.Message.Text}");
+                                        await HandleMessage(update.Message);
+                                    }
+                                }
+                                else if (update.Type == Telegram.Bot.Types.Enums.UpdateType.CallbackQuery)
+                                {
+                                    await HandleCallbackQuery(update.CallbackQuery);
+                                }
+
+                                offset = update.Id + 1;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Error handling update");
+                            }
                         }
                     }
-                    else if (update.Type == Telegram.Bot.Types.Enums.UpdateType.CallbackQuery)
+                    catch (Exception ex)
                     {
-                        await HandleCallbackQuery(update.CallbackQuery);
+                        _logger.LogError(ex, "Error retrieving updates from Telegram API");
                     }
-                    offset = update.Id + 1;
+
+                    await Task.Delay(1000, cancellationToken);
                 }
-                await Task.Delay(1000, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Critical error initializing Telegram bot");
             }
         }
+
 
         private async Task HandleCallbackQuery(CallbackQuery callbackQuery)
         {
@@ -238,7 +263,7 @@ namespace Services.Services
             try
             {
                 await _botClient.SendTextMessageAsync(telegramUserId, message);
-                await _userService.SaveSubscription(telegramUserId, code, dates);
+                await _userService.SaveSubscription(telegramUserId, code);
                 _logger.LogInformation($"Message sent to user {telegramUserId} message: {message}");
             }
             catch (ApiRequestException ex)

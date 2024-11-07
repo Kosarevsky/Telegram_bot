@@ -19,32 +19,29 @@ namespace Services.Services
 
             var config = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<Data.Entities.User, UserModel>()
+                cfg.CreateMap<User, UserModel>()
                     .ForMember(dest => dest.Subscriptions, opt => opt.MapFrom(src => src.Subscriptions))
                     .ReverseMap();
 
                 cfg.CreateMap<UserSubscription, UserSubscriptionModel>()
-                    .ForMember(dest => dest.UserSubscriptionItems, opt => opt.MapFrom(src => src.UserSubscriptionItems))
                     .ReverseMap();
-
-                cfg.CreateMap<UserSubscriptionItems, UserSubscriptionItemsModel>().ReverseMap();
             });
 
             _mapper = config.CreateMapper();
         }
 
-        public async Task<List<UserModel>> GetAllAsync(Expression<Func<Data.Entities.User, bool>>? predicate = null)
+        public async Task<List<UserModel>> GetAllAsync(Expression<Func<User, bool>>? predicate = null)
         {
             var users = predicate == null
-                ? await _database.User.GetAllAsync() 
-                : await _database.User.GetAllAsync(predicate);
+                ? _database.User.GetAllAsync() 
+                : _database.User.GetAllAsync(predicate);
 
             return _mapper.Map<List<UserModel>>(users);
         }
 
-        public async Task SaveSubscription(long telegramId, string code, List<DateTime>? dates = null)
+        public async Task SaveSubscription(long telegramId, string code)
         {
-           await _database.User.SaveSubscriptionAsync(telegramId, code, dates);
+           await _database.User.SaveSubscriptionAsync(telegramId, code);
         }
 
         public async Task DeleteSubscription(long telegramId, string code)
