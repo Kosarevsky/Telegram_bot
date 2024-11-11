@@ -35,15 +35,14 @@ namespace Services.Services
         public async Task NotificationSend(string code, List<DateTime> dates, List<DateTime> previouslySentDates)
         {
             var users = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
+                var newDates = dates.Except(previouslySentDates).ToList();
+                var missingDates = previouslySentDates.Except(dates).ToList();
+                var message = GenerateMessage(dates, newDates, missingDates, code);
 
             foreach (var user in users)
             {
-                var newDates = dates.Except(previouslySentDates).ToList();
-                var missingDates = previouslySentDates.Except(dates).ToList();
-
                 if (newDates.Any() || missingDates.Any())
                 {
-                    var message = GenerateMessage(newDates, missingDates, code);
                     try
                     {
                         await _telegramBotService.SendTextMessage(user.TelegramUserId, message, code, dates);
@@ -57,19 +56,32 @@ namespace Services.Services
             }
         }
 
-        private string GenerateMessage(List<DateTime> newDates , List<DateTime> missingDates,  string code)
+        private string GenerateMessage(List<DateTime> dates, List<DateTime> newDates, List<DateTime> missingDates, string code)
         {
             var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {CodeMapping.GetKeyByCode(code)}\n";
 
-            if (newDates.Any()) {
-                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n";  
+            var availableDateMessage = dates.Any() 
+                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}" 
+                : "Нет дат.";
+
+            if (dates.SequenceEqual(newDates))
+            {
+                return message + availableDateMessage;
             }
 
-            if (missingDates.Any()) {
-                message += $"Разобрали дату: {string.Join(", ", missingDates.Select(d=>d.ToShortDateString()))}";
+            if (newDates.Any())
+            {
+                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}";
             }
 
+            if (missingDates.Any())
+            {
+                message += $"Разобрали дату: {string.Join(", ", missingDates.Select(d => d.ToShortDateString()))}";
+            }
+
+            message += availableDateMessage;
             return message;
         }
+
     }
 }

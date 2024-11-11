@@ -16,13 +16,15 @@ namespace BezKolejki_bot.Services
         private readonly ILogger<BrowserAutomationService> _logger;
         private readonly IBezKolejkiService _bezKolejkiService;
         private readonly IConfiguration _configuration;
+        private readonly IEventPublisherService _eventPublisherService;
         private readonly int _interval;
 
-        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBezKolejkiService bezKolejkiService, IConfiguration configuration)
+        public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBezKolejkiService bezKolejkiService, IConfiguration configuration, IEventPublisherService eventPublisherService)
         {
             _logger = logger;
             _bezKolejkiService = bezKolejkiService;
             _configuration = configuration;
+            _eventPublisherService = eventPublisherService;
             var timeOutBrowser = configuration["ScheduledTask:TimeOutBrowser"];
             if (!int.TryParse(timeOutBrowser, out _interval) || _interval <= 0)
             {
@@ -80,16 +82,15 @@ namespace BezKolejki_bot.Services
 
                 var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
                 var buttonTexts = listOperacja2.FindElements(By.TagName("button")).Select(b => b.Text).ToList();
-
                 int index = 0;
+                var options = driver.Manage().Network;
+                await options.StartMonitoring();
                 while (index < buttonTexts.Count)
                 {
                     var buttonText = buttonTexts[index];
                     bool success = false;
 
-                    bool dataSaved = false; // Флаг для предотвращения повторного сохранения
-
-                    var options = driver.Manage().Network;
+                    bool dataSaved = false; 
 
                     EventHandler<NetworkResponseReceivedEventArgs> networkHandler = async (_, e) =>
                     {
@@ -102,41 +103,51 @@ namespace BezKolejki_bot.Services
                                 {
                                     var data = JsonConvert.DeserializeObject<BezKolejkiJsonModel>(responseBody);
                                     var availableDates = new List<DateTime>();
-
-                                    foreach (var dateStr in data.availableDays)
+                                    if (data != null)
                                     {
-                                        if (DateTime.TryParse(dateStr, out DateTime parsedDate))
+                                        foreach (var dateStr in data.availableDays)
                                         {
-                                            availableDates.Add(parsedDate);
+                                            if (DateTime.TryParse(dateStr, out DateTime parsedDate))
+                                            {
+                                                availableDates.Add(parsedDate);
+                                            }
+                                            else
+                                            {
+                                                _logger.LogWarning($"Error parse string '{dateStr}' to DateTime");
+                                            }
                                         }
-                                        else
+
+                                        if (availableDates.Any() && !dataSaved)
                                         {
-                                            _logger.LogWarning($"Не удалось преобразовать строку '{dateStr}' в DateTime");
+                                            var siteName = string.Empty;
+                                            try
+                                            {
+                                                siteName = driver.FindElement(By.CssSelector(".navbar-title")).Text;
+                                            }
+                                            catch (Exception)
+                                            {
+                                                _logger.LogWarning($"{buttonText} Error load siteName");
+                                            }
+
+                                            await SaveDatesToDatabase(availableDates, buttonText, siteName);
+                                            dataSaved = true;
+
                                         }
-                                    }
-
-                                    if (availableDates.Any() && !dataSaved)
-                                    {
-                                        var siteName = driver.FindElement(By.CssSelector(".navbar-title")).Text;
-
-                                        await SaveDatesToDatabase(availableDates, buttonText, siteName);
-                                        dataSaved = true; 
-                                    }
-                                    else if (!availableDates.Any())
-                                    {
-                                        _logger.LogInformation("Нет доступных дат для сохранения.");
+                                        else if (!availableDates.Any())
+                                        {
+                                            _logger.LogInformation($"{buttonText}. Not available date for save");
+                                        }
                                     }
                                 }
                                 catch (Exception)
                                 {
-                                    _logger.LogInformation($"not a json object: {responseBody}");
+                                    _logger.LogInformation($"{buttonText} not a json object: {responseBody}");
                                 }
                             }
                         }
                     };
 
-                    options.NetworkResponseReceived += networkHandler; // Подписываемся на событие
-
+                    options.NetworkResponseReceived += networkHandler; //Subscribe event
 
                     while (!success)
                     {
@@ -157,8 +168,6 @@ namespace BezKolejki_bot.Services
                             await Task.Delay(1500);
                             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                             await Task.Delay(1000);
-
-                            await options.StartMonitoring();
 
                             button.Click();
 
@@ -184,8 +193,8 @@ namespace BezKolejki_bot.Services
                         }
                     }
                     options.NetworkResponseReceived -= networkHandler;
-                    await options.StopMonitoring();
                 }
+                await options.StopMonitoring();
             }
             catch (WebDriverTimeoutException)
             {
@@ -200,20 +209,32 @@ namespace BezKolejki_bot.Services
 
         private async Task<bool> ErrorCaptchaAsync(IWebDriver driver, string buttonText)
         {
+            const int maxRetryCount = 3;
+            int retryCount = 0;
+
+            while (retryCount < maxRetryCount)
+            {
                 if (!driver.FindElements(By.ClassName("sweet-modal-warning")).Any())
                 {
                     return false;
                 }
 
-                await Task.Delay(4000);
-                driver.Navigate().Refresh();
+                _logger.LogInformation($"Captcha detected on attempt {retryCount + 1} Refreshing the page");
+
                 await Task.Delay(2000);
+                driver.Navigate().Refresh();
+                await Task.Delay(4000);
 
                 var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
                 if (button == null)
                 {
                     _logger.LogWarning($"Button with text '{buttonText}' not found after refresh.");
+                    return true;
                 }
+                retryCount++;
+
+            }
+            _logger.LogError($"Exceeded maximum retry attempts ({maxRetryCount}) for captcha resolution.");
             return true;
         }
 
@@ -224,9 +245,10 @@ namespace BezKolejki_bot.Services
                 var code = CodeMapping.GetValueByKey(buttonName);
                 if (!string.IsNullOrEmpty(code))
                 {
+                    var previousDates = await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(code);
                     await _bezKolejkiService.SaveAsync(code, dates); 
                     _logger.LogInformation($"Save date to {code}, {buttonName}");
-
+                    await _eventPublisherService.PublishDatesSavedAsync(code, dates, previousDates);
                 }
                 else
                 {
@@ -237,6 +259,12 @@ namespace BezKolejki_bot.Services
             {
                 _logger.LogInformation($"No dates available to save ({buttonName})");
             }
+        }
+
+        static string ExtractDateFromClass(string classAttribute)
+        {
+            var match = Regex.Match(classAttribute, @"id-(\d{4}-\d{2}-\d{2})");
+            return match.Success ? match.Groups[1].Value : string.Empty;
         }
 
         private List<DateTime> CollectAvailableDates(IWebDriver driver, WebDriverWait wait)
@@ -257,18 +285,12 @@ namespace BezKolejki_bot.Services
                     }
                 }
             }
-            catch (WebDriverTimeoutException )
+            catch (WebDriverTimeoutException)
             {
                 _logger.LogInformation("Dates not found");
             }
 
             return dates;
-        }
-
-        static string ExtractDateFromClass(string classAttribute)
-        {
-            var match = Regex.Match(classAttribute, @"id-(\d{4}-\d{2}-\d{2})");
-            return match.Success ? match.Groups[1].Value : string.Empty;
         }
     }
 }

@@ -23,7 +23,7 @@ namespace BezKolejki_bot.Services
             _browserAutomationService = browserAutomationService;
             _notificationService = notificationService;
 
-            var bialaTaskScheduled = configuration["ScheduledTask:Biala"];
+            var bialaTaskScheduled = configuration["ScheduledTask:RunTaskBezKolejki"];
             if (!int.TryParse(bialaTaskScheduled, out _interval) || _interval <= 0)
             {
                 throw new InvalidOperationException("Biala Task Scheduled interval is not properly configured.");
@@ -47,8 +47,8 @@ namespace BezKolejki_bot.Services
                 {
                     var urls = new List<string>() 
                     {
-                        "https://bezkolejki.eu/luwbb/"/*,
-                        "https://uw.bezkolejki.eu/ouw"*/
+                        "https://bezkolejki.eu/luwbb/",
+                        "https://uw.bezkolejki.eu/ouw"
                     };
                     await _browserAutomationService.GetAvailableDateAsync(urls);
                 }
