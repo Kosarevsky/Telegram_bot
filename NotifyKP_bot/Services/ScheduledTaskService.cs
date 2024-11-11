@@ -47,8 +47,8 @@ namespace BezKolejki_bot.Services
                 {
                     var urls = new List<string>() 
                     {
-                        "https://bezkolejki.eu/luwbb/",
-                        "https://uw.bezkolejki.eu/ouw"
+                        "https://bezkolejki.eu/luwbb/"/*,
+                        "https://uw.bezkolejki.eu/ouw"*/
                     };
                     await _browserAutomationService.GetAvailableDateAsync(urls);
                 }

@@ -37,7 +37,7 @@
                     { "Wydawanie dokumentów (karty pobytu, zaproszenia)", "/Opole01" },
                     { "Złożenie wniosku: przez ob. UE i członków ich rodzin/na zaproszenie/o wymianę karty pobytu (w przypadku: zmiany danych umieszczonych w posiadanej karcie pobytu, zmiany wizerunku twarzy, utraty, uszkodzenia) oraz uzupełnianie braków formalnych w tych sprawach", "/Opole02" },
                     { "Karta Polaka - złożenie wniosku o przyznanie Karty Polaka", "/Opole03" },
-                    { "Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór", "/Opole04" }
+                    { "Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór ", "/Opole04"}
                 }
             }
         };

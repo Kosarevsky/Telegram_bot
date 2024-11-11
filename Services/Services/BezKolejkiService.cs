@@ -12,12 +12,10 @@ namespace Services.Services
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
-        private readonly ITelegramBotService _notificationService;
 
-        public BezKolejkiService(IUnitOfWork database, ITelegramBotService notificationService)
+        public BezKolejkiService(IUnitOfWork database)
         {
             _database = database;
-            _notificationService = notificationService;
 
             var config = new MapperConfiguration(cfg =>
             {

@@ -40,8 +40,10 @@ namespace Data.Repositories
             {
                 _context.AvailableDates.RemoveRange(existingExecution.AvailableDates);
 
+                _context.Entry(existingExecution).State = EntityState.Detached;
                 existingExecution.AvailableDates = op.AvailableDates;
                 existingExecution.ExecutionDateTime = op.ExecutionDateTime;
+                _context.Attach(existingExecution);
             }
             else
             {

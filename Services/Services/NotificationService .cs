@@ -27,19 +27,19 @@ namespace Services.Services
             _logger.LogWarning("* NotificationService initialized.");
         }
 
-        public async Task OnDatesSavedAsync(string code, List<DateTime> dates, List<DateTime> sendedDates)
+        public async Task OnDatesSavedAsync(string code, List<DateTime> dates, List<DateTime> previouslySentDates)
         {
-            await NotificationSend(code, dates, sendedDates);
+            await NotificationSend(code, dates, previouslySentDates);
         }
 
-        public async Task NotificationSend(string code, List<DateTime> dates, List<DateTime> sendedDates)
+        public async Task NotificationSend(string code, List<DateTime> dates, List<DateTime> previouslySentDates)
         {
             var users = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
 
             foreach (var user in users)
             {
-                var newDates = dates.Except(sendedDates).ToList();
-                var missingDates = sendedDates.Except(dates).ToList();
+                var newDates = dates.Except(previouslySentDates).ToList();
+                var missingDates = previouslySentDates.Except(dates).ToList();
 
                 if (newDates.Any() || missingDates.Any())
                 {
@@ -62,7 +62,7 @@ namespace Services.Services
             var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {CodeMapping.GetKeyByCode(code)}\n";
 
             if (newDates.Any()) {
-                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}";  
+                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n";  
             }
 
             if (missingDates.Any()) {

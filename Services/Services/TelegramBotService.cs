@@ -16,16 +16,22 @@ namespace Services.Services
         private readonly ILogger _logger;
         private readonly long _chatId;
         private readonly IUserService _userService;
+        private readonly IEventPublisherService _eventPublisher;
+        private readonly IBezKolejkiService _bezKolejkiService;
         public TelegramBotService(
             ITelegramBotClient botClient,
             ILogger<TelegramBotService> logger,
             IConfiguration configuration,
-            IUserService userService)
+            IUserService userService,
+            IEventPublisherService eventPublisher,
+            IBezKolejkiService bezKolejkiService)
         {
             _botClient = botClient;
             _logger = logger;
             _chatId = long.Parse(configuration["Telegram:ChatId"]);
             _userService = userService;
+            _eventPublisher = eventPublisher;
+            _bezKolejkiService = bezKolejkiService;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -83,7 +89,6 @@ namespace Services.Services
             }
         }
 
-
         private async Task HandleCallbackQuery(CallbackQuery callbackQuery)
         {
             var selectedButton = callbackQuery.Data;
@@ -126,7 +131,6 @@ namespace Services.Services
                         new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o przyznanie Karty Polaka", "/Opole03") },
                         new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór", "/Opole04") }
                     });
-
 
                     await _botClient.SendTextMessageAsync(
                         callbackQuery.Message.Chat.Id,
@@ -171,6 +175,12 @@ namespace Services.Services
                 {
                     await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
                     await _botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, $"Вы подписались на уведомление \n{nameSubscription}");
+                    
+                    await _eventPublisher.PublishDatesSavedAsync(selectedButton, 
+                        await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(selectedButton), 
+                        new List<DateTime>());
+
+                    _logger.LogInformation("Subscribed to DatesSaved event.");
                 }
                 else
                 {
@@ -196,10 +206,18 @@ namespace Services.Services
                 }
             }
 
-            if (oldSubscription != null && oldSubscription.Any())
+            if (oldSubscription != null )
             {
                 var subscriptionsMessage = string.Join(Environment.NewLine, listSubscription);
-                await _botClient.SendTextMessageAsync(telegramUserId, $"Перечень активных подписок:  \n{subscriptionsMessage}");
+
+                if (subscriptionsMessage.Length == 0)
+                {
+                    await _botClient.SendTextMessageAsync(telegramUserId, "У вас нет подписок.\nВыберите город и подпишитесь на услугу");
+                }
+                else
+                {
+                    await _botClient.SendTextMessageAsync(telegramUserId, $"Перечень активных подписок:  \n{subscriptionsMessage}");
+                }
             }
         }
         public static string TruncateText(string text, int maxLength)
