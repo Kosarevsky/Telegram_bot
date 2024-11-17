@@ -25,8 +25,8 @@ namespace Data.Repositories
         {
             return _context.Execution
                 .Include(d => d.AvailableDates)
-                .AsNoTracking()
-                .Where(predicate);
+                .Where(predicate)
+                .AsNoTracking();
         }
 
         public async Task SaveOperationWithDatesAsync(Execution op)

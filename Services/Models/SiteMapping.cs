@@ -9,6 +9,30 @@
 
     public static class CodeMapping
     {
+        private static readonly Dictionary<int, string> OperationIdToCodemap = new Dictionary<int, string> {
+            { 3074409, "/Biala01"},
+            { 3074424, "/Biala02"},
+            { 3074423, "/Biala03"},
+            { 3074422, "/Biala04"},
+            { 3074421, "/Biala05"},
+            { 3074420, "/Biala06"},
+            { 3074419, "/Biala07"},
+            { 3074418, "/Biala08"},
+            { 3074417, "/Biala09"},
+            { 3213864, "/Opole01" },
+            { 3213865, "/Opole02" },
+            { 3213866, "/Opole03" },
+            { 3213867, "/Opole04" },
+            { 8414, "/Rzeszow01" },
+            { 3062274, "/Rzeszow04" },
+            { 3062276, "/Rzeszow06"}
+        };
+
+        public static string GetCodeByOperationId(int operationId)
+        {
+            return OperationIdToCodemap.TryGetValue(operationId, out var code) ? code : string.Empty;
+        }
+
         private static readonly List<SiteMapping> SiteList = new List<SiteMapping>
         {
             new SiteMapping
@@ -38,6 +62,17 @@
                     { "Złożenie wniosku: przez ob. UE i członków ich rodzin/na zaproszenie/o wymianę karty pobytu (w przypadku: zmiany danych umieszczonych w posiadanej karcie pobytu, zmiany wizerunku twarzy, utraty, uszkodzenia) oraz uzupełnianie braków formalnych w tych sprawach", "/Opole02" },
                     { "Karta Polaka - złożenie wniosku o przyznanie Karty Polaka", "/Opole03" },
                     { "Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór ", "/Opole04"}
+                }
+            },
+            new SiteMapping
+            {
+                SiteIdentifier = "Rzeszow",
+                SiteName = "Podkarpacki Urząd Wojewódzki w Rzeszowie",
+                CodeMapping = new Dictionary<string, string>
+                {
+                    { "1. Odbiór paszportów)", "/Rzeszow01" },
+                    { "4. Składanie wniosków w sprawach obywatelstwa polskiego (nadanie, zrzeczenie, uznanie, potwierdzenie posiadania) - pokój 326, III piętro", "/Rzeszow04" },
+                    { "6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06" }
                 }
             }
         };

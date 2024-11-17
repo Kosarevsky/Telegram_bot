@@ -36,7 +36,7 @@ namespace Services.Services
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.LogWarning("Starting Telegram Bot...");
+            _logger.LogInformation("Starting Telegram Bot...");
 
             var offset = 0;
 
@@ -98,7 +98,7 @@ namespace Services.Services
             switch (selectedButton)
             {
                 case "Gdansk":
-                    await SendTextMessageAsync(
+                    await SendTextMessage(
                         callbackQuery.Message.Chat.Id,
                         "Гданьск скоро будет. Вы может ускорить процесс купив админу чашечку кофе."
                         );
@@ -117,9 +117,9 @@ namespace Services.Services
                         new [] { InlineKeyboardButton.WithCallbackData("Obywatele UE + Polski Dokument Podróży", "/Biala09") }
                     });
 
-                    await SendTextMessageAsync(
+                    await SendTextMessage(
                         callbackQuery.Message.Chat.Id,
-                        "Вы выбрали город Biala Podlaska. Пожалуйста, выберите один из следующих вопросов:",
+                        "Вы выбрали город Biala Podlaska. Пожалуйста, выберите операцию:",
                         replyMarkup: questionKeyboard
                     );
                     break;
@@ -132,10 +132,24 @@ namespace Services.Services
                         new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór", "/Opole04") }
                     });
 
-                    await SendTextMessageAsync(
+                    await SendTextMessage(
                         callbackQuery.Message.Chat.Id,
-                        "Вы выбрали город Opole. Пожалуйста, выберите один из следующих вопросов:",
+                        "Вы выбрали город Opole. Пожалуйста, выберите операцию:",
                         replyMarkup: questionKeyboardOpole
+                    );
+                    break;
+                case "Rzeszow":
+                    var questionKeyboardRzeszow = new InlineKeyboardMarkup(new[]
+                    {
+                        new [] { InlineKeyboardButton.WithCallbackData("1. Odbiór paszportów)", "/Rzeszow01") },
+                        new [] { InlineKeyboardButton.WithCallbackData("4. Składanie wniosków w sprawach obywatelstwa polskiego (nadanie, zrzeczenie, uznanie, potwierdzenie posiadania) - pokój 326, III piętro", "/Rzeszow04") },
+                        new [] { InlineKeyboardButton.WithCallbackData("6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06") }
+                    });
+
+                    await SendTextMessage(
+                        callbackQuery.Message.Chat.Id,
+                        "Вы выбрали город Rzeszow. Пожалуйста, выберите операцию:",
+                        replyMarkup: questionKeyboardRzeszow
                     );
                     break;
                 case "/Biala01":
@@ -151,10 +165,13 @@ namespace Services.Services
                 case "/Opole02":
                 case "/Opole03":
                 case "/Opole04":
+                case "/Rzeszow01":
+                case "/Rzeszow04":
+                case "/Rzeszow06":
                     await ProcessSubscriptionSelection(callbackQuery);
                     break;
                 default:
-                    await SendTextMessageAsync(
+                    await SendTextMessage(
                         callbackQuery.Message.Chat.Id,
                         $"Вы выбрали город: {selectedButton}"
                     );
@@ -168,24 +185,24 @@ namespace Services.Services
             var nameSubscription = CodeMapping.GetKeyByCode(selectedButton);
             if (!string.IsNullOrEmpty(nameSubscription))
             {
-                var users = await _userService.GetAllAsync(u => u.TelegramUserId == callbackQuery.From.Id);
-                var user = users.OrderBy(u=>u.TelegramUserId).FirstOrDefault();
+                var user = await _userService.GetByTelegramId(callbackQuery.From.Id);
 
                 if (user == null || !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
                 {
                     await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
-                    await SendTextMessageAsync(callbackQuery.Message.Chat.Id, $"Вы подписались на уведомление \n{nameSubscription}");
+                    await SendTextMessage(callbackQuery.Message.Chat.Id, $"Вы подписались на уведомление {nameSubscription}\nБот находится в тестовом режиме. \nПрошу не судить строго :)\n");
                     
                     await _eventPublisher.PublishDatesSavedAsync(selectedButton, 
                         await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(selectedButton), 
-                        new List<DateTime>());
+                        new List<DateTime>(),
+                        callbackQuery.Message.Chat.Id);
 
                     _logger.LogInformation("Subscribed to DatesSaved event.");
                 }
                 else
                 {
                     await _userService.DeleteSubscription(callbackQuery.Message.Chat.Id, selectedButton);
-                    await SendTextMessageAsync(callbackQuery.Message.Chat.Id, $"Вы отписались от уведомления \n{nameSubscription}");
+                    await SendTextMessage(callbackQuery.Message.Chat.Id, $"Вы отписались от уведомления\n{nameSubscription}");
                 }
             }
         }
@@ -193,19 +210,17 @@ namespace Services.Services
         private async Task SendSubscriptionList(long telegramUserId)
         {
             var listSubscription = new List<string>();
-            var users = await _userService.GetAllAsync(u => u.TelegramUserId == telegramUserId);
-            var user = users.FirstOrDefault();
-            var oldSubscription = user?.Subscriptions.ToList();
+            var user = await _userService.GetByTelegramId(telegramUserId);
+            var userSubscription = user?.Subscriptions.ToList();
 
-
-            if (oldSubscription != null )
+            if (user != null && userSubscription != null)
             {
-                foreach (var el in oldSubscription)
+                foreach (var el in userSubscription)
                 {
                     var subscriptionName = $"{CodeMapping.GetSiteIdentifierByCode(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
                     if (!string.IsNullOrEmpty(subscriptionName))
                     {
-                        listSubscription.Add(TruncateText(subscriptionName, 45));
+                        listSubscription.Add(TruncateText(subscriptionName, 47));
                     }
                 }
 
@@ -213,11 +228,11 @@ namespace Services.Services
 
                 if (subscriptionsMessage.Length == 0)
                 {
-                    await SendTextMessageAsync(telegramUserId, "У вас нет подписок.\nВыберите город и подпишитесь на услугу");
+                    await SendTextMessage(telegramUserId, "У вас нет подписок.\nВыберите город и подпишитесь на услугу");
                 }
                 else
                 {
-                    await SendTextMessageAsync(telegramUserId, $"Перечень активных подписок:  \n{subscriptionsMessage}");
+                    await SendTextMessage(telegramUserId, $"Перечень активных подписок:  \n{subscriptionsMessage}");
                 }
             }
         }
@@ -247,8 +262,9 @@ namespace Services.Services
 
             if (message.Text == "/start")
             {
-                await SendTextMessageAsync(message.Chat.Id, "Welcome to the bot!", replyMarkup: mainKeyboard);
-                await SendTextMessageAsync(message.Chat.Id, "Нажмите 'Меню', чтобы выбрать город.");
+                var mess = "Welcome to the bot!\n** Бот находится стадии разработки. **\nНажмите 'Меню', чтобы выбрать город.";
+                await SendTextMessage(message.Chat.Id, mess, replyMarkup: mainKeyboard);
+                await _userService.UpdateLastNotificationDateAsync(message.Chat.Id);
             }
             else if (message.Text == "Menu")
             {
@@ -258,11 +274,12 @@ namespace Services.Services
                     {
                         InlineKeyboardButton.WithCallbackData("Gdansk", "Gdansk"),
                         InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska"),
-                        InlineKeyboardButton.WithCallbackData("Opole", "Opole")
+                        InlineKeyboardButton.WithCallbackData("Opole", "Opole"),
+                        InlineKeyboardButton.WithCallbackData("Rzeszow", "Rzeszow")
                     }
                 });
 
-                await SendTextMessageAsync(
+                await SendTextMessage(
                     message.Chat.Id,
                     "Выберите город из списка:",
                     replyMarkup: cityKeyboard
@@ -270,24 +287,10 @@ namespace Services.Services
             }
             else if (message.Text.StartsWith("/date"))
             {
-                await SendTextMessageAsync(message.Chat.Id, $"Current date: {DateTime.Now}", replyMarkup: mainKeyboard);
+                await SendTextMessage(message.Chat.Id, $"Current date: {DateTime.Now}", replyMarkup: mainKeyboard);
             }
             else if (message.Text == "Подписки") {
                 await SendSubscriptionList(message.Chat.Id);
-            }
-        }
-
-        public async Task SendTextMessage(long telegramUserId, string message, string code, List<DateTime> dates)
-        {
-            try
-            {
-                await SendTextMessageAsync(telegramUserId, message);
-                await _userService.SaveSubscription(telegramUserId, code);
-                _logger.LogInformation($"Message sent to user {telegramUserId} message: {message}");
-            }
-            catch (ApiRequestException ex)
-            {
-                _logger.LogError($"Failed to send message to user {telegramUserId}: {ex.Message}");
             }
         }
 
@@ -296,30 +299,19 @@ namespace Services.Services
             _logger.LogInformation("Stopping Telegram Bot...");
             return Task.CompletedTask;
         }
-        public async Task SendNotificationAsync(string message)
-        {
-            await SendTextMessageAsync(_chatId, message);
-        }
 
-        private async Task SendTextMessageAsync(long chatId, string messageText, IReplyMarkup replyMarkup = null, CancellationToken cancellationToken = default)
+        public async Task SendTextMessage(long chatId, string messageText, IReplyMarkup replyMarkup = null, CancellationToken cancellationToken = default)
         {
             try
             {
-                if (replyMarkup == null)
-                {
-                    await _botClient.SendMessage(chatId, messageText, cancellationToken: cancellationToken);
-                }
-                else
-                {
                     await _botClient.SendMessage(chatId, messageText, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
-                }
             }
             catch (ApiRequestException ex) when (ex.ErrorCode == 429)
             {
                 int retryAfter = ex.Parameters.RetryAfter ?? 5;
                 _logger.LogWarning($"Too many requests. Retrying after {retryAfter} seconds.");
                 await Task.Delay(retryAfter * 1000, cancellationToken);
-                await SendTextMessageAsync(chatId, messageText, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
+                await SendTextMessage(chatId, messageText, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
             }
         }
     }

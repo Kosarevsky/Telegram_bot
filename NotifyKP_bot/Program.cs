@@ -45,6 +45,7 @@ namespace BezKolejki_bot
 
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
 
+                    services.AddSingleton<BotContextFactory>();
                     services.AddSingleton<IEventPublisherService, EventPublisherService>();
                     services.AddSingleton<INotificationService>(provider =>
                     {
@@ -55,12 +56,15 @@ namespace BezKolejki_bot
                         var bezKolejkiService = provider.GetRequiredService<IBezKolejkiService>();
                         var notificationService = new NotificationService(logger, telegramBotService, eventPublisher, userService, bezKolejkiService);
                         eventPublisher.DatesSaved += notificationService.OnDatesSavedAsync;
-                        logger.LogWarning("*** NotificationService registered.");
                         return notificationService;
                     });
                     services.AddScoped<IUnitOfWork, EntityUnitOfWork>();
                     services.AddDbContext<BotContext>(options =>
-                        options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
+                    {
+                        options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection"));
+                        options.EnableSensitiveDataLogging();
+                    }, ServiceLifetime.Transient);
+
 
                     services.AddTransient<IBezKolejkiService, BezKolejkiService>();
      
@@ -68,7 +72,9 @@ namespace BezKolejki_bot
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
 
                     services.AddHostedService<ScheduledTaskService>();
-                    services.AddSingleton<IScheduledTaskService, ScheduledTaskService>();
+                    services.AddHostedService<UserActivityChecker>();
+                    services.AddScoped<IUserActivityChecker, UserActivityChecker>();
+                    //services.AddSingleton<IScheduledTaskService, ScheduledTaskService>();
 
                     services.AddHostedService<TelegramBotService>();
                     services.AddSingleton<ITelegramBotService, TelegramBotService>();

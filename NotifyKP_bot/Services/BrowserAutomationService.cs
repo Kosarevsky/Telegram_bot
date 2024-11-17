@@ -42,7 +42,7 @@ namespace BezKolejki_bot.Services
             options.AddExcludedArgument("enable-automation");
             options.AddAdditionalOption("useAutomationExtension", false); 
             options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
-            //options.AddArgument("--headless");
+            options.AddArgument("--headless");
             options.AddArgument("--incognito");
 
             var cancellationTokenSource = new CancellationTokenSource();
@@ -102,9 +102,26 @@ namespace BezKolejki_bot.Services
                                 try
                                 {
                                     var data = JsonConvert.DeserializeObject<BezKolejkiJsonModel>(responseBody);
-                                    var availableDates = new List<DateTime>();
+
                                     if (data != null)
                                     {
+                                        var code = CodeMapping.GetCodeByOperationId(data.operationId);
+                                        if (string.IsNullOrEmpty(code))
+                                        {
+                                            _logger.LogWarning($"Error mapping code {data.operationId}");
+                                        }
+                                        var previousDates = new List<DateTime>();
+                                        try
+                                        {
+                                            previousDates = await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(code);
+                                        }
+                                        catch (Exception)
+                                        {
+                                            _logger.LogWarning($"Error loading previousDates {data.operationId}");
+                                        }
+
+                                        var availableDates = new List<DateTime>();
+
                                         foreach (var dateStr in data.availableDays)
                                         {
                                             if (DateTime.TryParse(dateStr, out DateTime parsedDate))
@@ -117,19 +134,9 @@ namespace BezKolejki_bot.Services
                                             }
                                         }
 
-                                        if (availableDates.Any() && !dataSaved)
+                                        if ((availableDates.Any() || previousDates.Any()) && !dataSaved)
                                         {
-                                            var siteName = string.Empty;
-                                            try
-                                            {
-                                                siteName = driver.FindElement(By.CssSelector(".navbar-title")).Text;
-                                            }
-                                            catch (Exception)
-                                            {
-                                                _logger.LogWarning($"{buttonText} Error load siteName");
-                                            }
-
-                                            await SaveDatesToDatabase(availableDates, buttonText, siteName);
+                                            await SaveDatesToDatabase(availableDates, previousDates, code);
                                             dataSaved = true;
 
                                         }
@@ -178,7 +185,7 @@ namespace BezKolejki_bot.Services
                                 return loadingElement.GetCssValue("display") == "none";
                             });
 
-                            if (await ErrorCaptchaAsync(driver, button.Text))
+                            if (await ErrorCaptchaAsync(driver, buttonText))
                             {
                                 continue;
                             };
@@ -226,9 +233,13 @@ namespace BezKolejki_bot.Services
                 await Task.Delay(4000);
 
                 var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
-                if (button == null)
+                if (button != null)
                 {
-                    _logger.LogWarning($"Button with text '{buttonText}' not found after refresh.");
+                    _logger.LogInformation($"Re-clicking button '{buttonText}' after captcha refresh.");
+                    ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                    await Task.Delay(500);
+                    button.Click();
+                    await Task.Delay(1000);
                     return true;
                 }
                 retryCount++;
@@ -238,26 +249,33 @@ namespace BezKolejki_bot.Services
             return true;
         }
 
-        private async Task SaveDatesToDatabase(List<DateTime> dates, string buttonName, string siteName)
+        private async Task SaveDatesToDatabase(List<DateTime> dates, List<DateTime> previousDates, string code)
         {
+            var buttonName = CodeMapping.GetValueByKey(code);
             if (dates != null && dates.Any())
             {
-                var code = CodeMapping.GetValueByKey(buttonName);
                 if (!string.IsNullOrEmpty(code))
                 {
-                    var previousDates = await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(code);
-                    await _bezKolejkiService.SaveAsync(code, dates); 
-                    _logger.LogInformation($"Save date to {code}, {buttonName}");
-                    await _eventPublisherService.PublishDatesSavedAsync(code, dates, previousDates);
+                    try
+                    {
+                        await _bezKolejkiService.SaveAsync(code, dates); 
+                        _logger.LogInformation($"Save date to {code}, {buttonName}");
+                        await _eventPublisherService.PublishDatesSavedAsync(code, dates, previousDates);
+                    }
+                    catch (Exception)
+                    {
+                        _logger.LogWarning($"Error save or published data {code}");
+                        throw;
+                    }
                 }
                 else
                 {
-                    _logger.LogWarning($"No code found for button ({buttonName} {siteName})");
+                    _logger.LogWarning($"No code found for button ({buttonName} {code})");
                 }
             }
             else
             {
-                _logger.LogInformation($"No dates available to save ({buttonName})");
+                _logger.LogInformation($"No dates available to save ({buttonName} {code})");
             }
         }
 
@@ -273,7 +291,6 @@ namespace BezKolejki_bot.Services
             try
             {
                 var elements = wait.Until(d => d.FindElements(By.XPath("//div[contains(@class, 'vc-day')]//span[@aria-disabled='false']")));
-                // var elements = wait.Until(d => d.FindElements(By.XPath("//div[contains(@class, 'vc-day')]//span[@aria-disabled='false']")));
 
                 foreach (var element in elements)
                 {

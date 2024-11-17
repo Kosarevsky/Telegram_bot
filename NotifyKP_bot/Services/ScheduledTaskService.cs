@@ -48,7 +48,8 @@ namespace BezKolejki_bot.Services
                     var urls = new List<string>() 
                     {
                         "https://bezkolejki.eu/luwbb/",
-                        "https://uw.bezkolejki.eu/ouw"
+                        "https://uw.bezkolejki.eu/ouw",
+                        "https://bezkolejki.eu/puw_rzeszow2"
                     };
                     await _browserAutomationService.GetAvailableDateAsync(urls);
                 }

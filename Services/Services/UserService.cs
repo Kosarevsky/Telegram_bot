@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Data.Entities;
 using Data.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Services.Interfaces;
 using Services.Models;
 using System.Linq.Expressions;
@@ -33,12 +34,17 @@ namespace Services.Services
         public async Task<List<UserModel>> GetAllAsync(Expression<Func<User, bool>>? predicate = null)
         {
             var users = predicate == null
-                ? _database.User.GetAllAsync() 
-                : _database.User.GetAllAsync(predicate);
+                ? await _database.User.GetAllAsync().ToListAsync() 
+                : await _database.User.GetAllAsync(predicate).ToListAsync();
 
             return _mapper.Map<List<UserModel>>(users);
         }
 
+        public async Task<UserModel> GetByTelegramId(long telegramId)
+        {
+            var user = await _database.User.GetAllAsync(u => u.TelegramUserId == telegramId).FirstOrDefaultAsync();
+            return _mapper.Map<UserModel>(user);
+        }
         public async Task SaveSubscription(long telegramId, string code)
         {
            await _database.User.SaveSubscriptionAsync(telegramId, code);
@@ -47,6 +53,20 @@ namespace Services.Services
         public async Task DeleteSubscription(long telegramId, string code)
         {
             await _database.User.DeleteSubscriptionAsync(telegramId, code);
+        }
+
+        public async Task UpdateLastNotificationDateAsync(long telegramId)
+        {
+            var user = await _database.User.GetAllAsync(u => u.TelegramUserId == telegramId).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                throw new KeyNotFoundException($"User with TelegramUserId {telegramId} not found");
+            }
+
+            if ((DateTime.UtcNow - user.DateLastSubscription).TotalSeconds > 30)
+            {
+                await _database.User.UpdateLastNotificationDateAsync(user);
+            }
         }
     }
 }

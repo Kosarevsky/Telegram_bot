@@ -23,45 +23,66 @@ namespace Services.Services
             _userService = userService;
             _bezKolejkiService = bezKolejkiService;
 
-            //eventPublisher.DatesSaved += OnDatesSavedAsync;
             _logger.LogWarning("* NotificationService initialized.");
         }
 
-        public async Task OnDatesSavedAsync(string code, List<DateTime> dates, List<DateTime> previouslySentDates)
+        public async Task OnDatesSavedAsync(string code, List<DateTime> dates, List<DateTime> previouslySentDates, long? telegramId = null)
         {
-            await NotificationSend(code, dates, previouslySentDates);
+            await NotificationSend(code, dates, previouslySentDates, telegramId);
         }
 
-        public async Task NotificationSend(string code, List<DateTime> dates, List<DateTime> previouslySentDates)
+        public async Task NotificationSend(string code, List<DateTime> dates, List<DateTime> previouslySentDates, long? telegramId = null)
         {
-            var users = await _userService.GetAllAsync(u => u.Subscriptions.Any(s => s.SubscriptionCode == code));
+            try
+            {
                 var newDates = dates.Except(previouslySentDates).ToList();
                 var missingDates = previouslySentDates.Except(dates).ToList();
                 var message = GenerateMessage(dates, newDates, missingDates, code);
 
-            foreach (var user in users)
-            {
                 if (newDates.Any() || missingDates.Any())
                 {
-                    try
+                    var users = telegramId == null
+                        ? await _userService.GetAllAsync(u => u.IsActive && u.Subscriptions.Any(s => s.SubscriptionCode == code))
+                        : await _userService.GetAllAsync(u => u.IsActive && u.TelegramUserId == telegramId && u.Subscriptions.Any(c => c.SubscriptionCode == code));
+
+                    var tasks = new List<Task>();
+
+                    foreach (var user in users)
                     {
-                        await _telegramBotService.SendTextMessage(user.TelegramUserId, message, code, dates);
-                        _logger.LogInformation($"Notification sent to user {user.TelegramUserId} for code {code}");
+                        var telegramUserId = user.TelegramUserId;
+                        tasks.Add(SendNotification(telegramUserId, message, code));
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, $"Failed to send notification to user {user.TelegramUserId} for code {code}");
-                    }
+
+                    await Task.WhenAll(tasks);
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while sending notifications");
+            }
+
         }
+
+        private async Task SendNotification(long telegramUserId, string message, string code)
+        {
+            try
+            {
+                await _telegramBotService.SendTextMessage(telegramUserId, message);
+                _logger.LogInformation($"Notification sent to user {telegramUserId} for code {code}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Failed to send notification to user {telegramUserId} for code {code}");
+            }
+        }
+
 
         private string GenerateMessage(List<DateTime> dates, List<DateTime> newDates, List<DateTime> missingDates, string code)
         {
             var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {CodeMapping.GetKeyByCode(code)}\n";
 
-            var availableDateMessage = dates.Any() 
-                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}" 
+            var availableDateMessage = dates.Any()
+                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}"
                 : "Нет дат.";
 
             if (dates.SequenceEqual(newDates))
@@ -71,17 +92,16 @@ namespace Services.Services
 
             if (newDates.Any())
             {
-                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}";
+                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n";
             }
 
             if (missingDates.Any())
             {
-                message += $"Разобрали дату: {string.Join(", ", missingDates.Select(d => d.ToShortDateString()))}";
+                message += $"Разобрали дату: {string.Join(", ", missingDates.Select(d => d.ToShortDateString()))}\n";
             }
 
             message += availableDateMessage;
             return message;
         }
-
     }
 }

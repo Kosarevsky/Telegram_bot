@@ -5,27 +5,38 @@ namespace Data.Repositories
 {
     public class EntityUnitOfWork : IUnitOfWork
     {
-        private readonly BotContext _context;
-        private ExecutionRepository _executionRepository;
-        private UserRepository _userRepository;
-        private UserSubscriptionRepository _userSubscriptionRepository;
-        public IExecutionRepository Executions =>
-            _executionRepository ?? (_executionRepository = new ExecutionRepository(_context));
-        public IUserRepository User =>
-            _userRepository ?? (_userRepository = new UserRepository(_context));
-        public IUserSubscriptionRepository UserSubscription =>
-            _userSubscriptionRepository ?? (_userSubscriptionRepository = new UserSubscriptionRepository(_context));
+        private readonly BotContextFactory _contextFactory;
 
-        public async Task<DateTime> GetCurrentDateTimeFromSQLServer() => await _context.GetCurrentDateTimeFromServerAsync();
-
-        public EntityUnitOfWork(BotContext context)
+        public EntityUnitOfWork(BotContextFactory contextFactory)
         {
-            _context = context;
+            _contextFactory = contextFactory;
+        }
+
+        public IExecutionRepository Executions =>
+            new ExecutionRepository(CreateContext());
+
+        public IUserRepository User =>
+            new UserRepository(CreateContext());
+
+        public IUserSubscriptionRepository UserSubscription =>
+            new UserSubscriptionRepository(CreateContext());
+
+        private BotContext CreateContext()
+        {
+            return _contextFactory.CreateDbContext(Array.Empty<string>());
+        }
+
+        public async Task<DateTime> GetCurrentDateTimeFromSQLServer()
+        {
+            using var context = CreateContext();
+            return await context.GetCurrentDateTimeFromServerAsync();
         }
 
         public async Task SaveAsync()
         {
-            _context.SaveChanges();
+            using var context = CreateContext();
+            await context.SaveChangesAsync();
         }
+
     }
 }
