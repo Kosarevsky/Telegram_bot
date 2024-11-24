@@ -226,7 +226,7 @@ namespace BezKolejki_bot.Services
                     return false;
                 }
 
-                _logger.LogInformation($"Captcha detected on attempt {retryCount + 1} Refreshing the page");
+                _logger.LogInformation($"{CodeMapping.GetSiteIdentifierByKey(buttonText)} Captcha detected on attempt {retryCount + 1} Refreshing the page");
 
                 await Task.Delay(2000);
                 driver.Navigate().Refresh();
@@ -248,11 +248,20 @@ namespace BezKolejki_bot.Services
             _logger.LogError($"Exceeded maximum retry attempts ({maxRetryCount}) for captcha resolution.");
             return true;
         }
+        private static string TruncateText(string text, int maxLength)
+        {
+            if (string.IsNullOrEmpty(text) || maxLength <= 0)
+                return string.Empty;
+
+            return text.Length > maxLength
+                ? text.Substring(0, maxLength - 3) + "..."
+                : text;
+        }
 
         private async Task SaveDatesToDatabase(List<DateTime> dates, List<DateTime> previousDates, string code)
         {
-            var buttonName = CodeMapping.GetValueByKey(code);
-            if (dates != null && dates.Any())
+            var buttonName = TruncateText(CodeMapping.GetKeyByCode(code),60);
+            if (dates != null && (dates.Any() || previousDates.Any()))
             {
                 if (!string.IsNullOrEmpty(code))
                 {
@@ -270,12 +279,12 @@ namespace BezKolejki_bot.Services
                 }
                 else
                 {
-                    _logger.LogWarning($"No code found for button ({buttonName} {code})");
+                    _logger.LogWarning($"No code found for button ({code} {buttonName})");
                 }
             }
             else
             {
-                _logger.LogInformation($"No dates available to save ({buttonName} {code})");
+                _logger.LogInformation($"No dates available to save ({code} {buttonName})");
             }
         }
 

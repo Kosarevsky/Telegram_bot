@@ -6,7 +6,6 @@ using Services.Interfaces;
 using Services.Models;
 using System.Linq.Expressions;
 
-
 namespace Services.Services
 {
     public class UserService : IUserService
@@ -20,7 +19,7 @@ namespace Services.Services
 
             var config = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<User, UserModel>()
+                cfg.CreateMap<Data.Entities.User, UserModel>()
                     .ForMember(dest => dest.Subscriptions, opt => opt.MapFrom(src => src.Subscriptions))
                     .ReverseMap();
 
@@ -31,7 +30,7 @@ namespace Services.Services
             _mapper = config.CreateMapper();
         }
 
-        public async Task<List<UserModel>> GetAllAsync(Expression<Func<User, bool>>? predicate = null)
+        public async Task<List<UserModel>> GetAllAsync(Expression<Func<Data.Entities.User, bool>>? predicate = null)
         {
             var users = predicate == null
                 ? await _database.User.GetAllAsync().ToListAsync() 
@@ -55,18 +54,20 @@ namespace Services.Services
             await _database.User.DeleteSubscriptionAsync(telegramId, code);
         }
 
-        public async Task UpdateLastNotificationDateAsync(long telegramId)
+        public async Task UpdateLastNotificationDateAsync(UserModel tgUser)
         {
-            var user = await _database.User.GetAllAsync(u => u.TelegramUserId == telegramId).FirstOrDefaultAsync();
-            if (user == null)
-            {
-                throw new KeyNotFoundException($"User with TelegramUserId {telegramId} not found");
+            var userEntity = _mapper.Map<Data.Entities.User>(tgUser);
+            await _database.User.UpdateLastNotificationDateAsync(userEntity);
+        }
+
+        public void DeactivateUserAsync(long chatId)
+        {
+            var user = _database.User.GetAllAsync(u => u.TelegramUserId == chatId).FirstOrDefault();
+            if (user != null) { 
+            user.IsActive = false;
+                _database.User.DeactivateUserAsync(user);
             }
 
-            if ((DateTime.UtcNow - user.DateLastSubscription).TotalSeconds > 30)
-            {
-                await _database.User.UpdateLastNotificationDateAsync(user);
-            }
         }
     }
 }

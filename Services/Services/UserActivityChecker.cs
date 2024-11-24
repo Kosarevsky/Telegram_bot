@@ -38,21 +38,35 @@ namespace Services.Services
         public async Task CheckInactiveUsers(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Starting inactive user check...");
-            var oldDate = DateTime.UtcNow.AddDays(-1);
+            var oldDate = DateTime.UtcNow.AddDays(-7);
 
             var usersToNotify = await _userService.GetAllAsync(u => u.DateLastSubscription <= oldDate && u.IsActive);
 
             foreach (var user in usersToNotify)
             {
+                if (user.DateLastSubscription > DateTime.UtcNow.AddDays(-8))
+                {
+                    try
+                    {
+                        var warningMessage = "";
+                    }
+                    catch (Exception)
+                    {
+
+                        throw;
+                    } 
+                       
+                }
+
                 try
                 {
                     var warningMessage = "Мы заметили, что вы давно не проявляли активности. Если хотите продолжать получать уведомления, ответьте /start";
                     await _telegramBotService.SendTextMessage(user.TelegramUserId, warningMessage);
-                    _logger.LogInformation($"Warning send to User {user.TelegramUserId} {user.TelegramNickName}");
+                    _logger.LogInformation($"Warning send to User {user.TelegramUserId} {user.UserName}");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, $"Error send warning to user {user.TelegramUserId} {user.TelegramNickName}");
+                    _logger.LogWarning(ex, $"Error send warning to user {user.TelegramUserId} {user.UserName}");
                 }
 
             }

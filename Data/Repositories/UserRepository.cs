@@ -81,12 +81,51 @@ namespace Data.Repositories
                 }
             }
         }
-        public async Task UpdateLastNotificationDateAsync(User user)
+
+
+        public async Task UpdateLastNotificationDateAsync(User userTg)
         {
-            user.DateLastSubscription = await _context.GetCurrentDateTimeFromServerAsync();
-            _context.Entry(user).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            try
+            {
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.TelegramUserId == userTg.TelegramUserId);
+
+                if (user == null)
+                {
+                    user = new User
+                    {
+                        TelegramUserId = userTg.TelegramUserId,
+                        DateLastSubscription = await _context.GetCurrentDateTimeFromServerAsync(),
+                        FirstName = userTg.FirstName,
+                        LastName = userTg.LastName,
+                        UserName = userTg.UserName,
+                        IsForum = userTg.IsForum,
+                        Title = userTg.Title,
+                        IsActive = true,
+                        Subscriptions = new List<UserSubscription>()
+                    };
+
+                    await _context.Users.AddAsync(user);
+                }
+                else
+                {
+                    user.DateLastSubscription = DateTime.UtcNow;
+                    user.FirstName = userTg.FirstName;
+                    user.LastName = userTg.LastName;
+                    user.UserName = userTg.UserName;
+                    user.IsForum = userTg.IsForum;
+                    user.Title = userTg.Title;
+                    user.IsActive = true;
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
+
 
         public async Task DeleteSubscriptionAsync(long telegramId, string code)
         {
@@ -116,6 +155,12 @@ namespace Data.Repositories
                     throw;
                 }
             }
+        }
+
+        public async void DeactivateUserAsync(User user)
+        {
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
         }
     }
 }

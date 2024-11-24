@@ -79,12 +79,61 @@
 
         public static readonly Dictionary<string, SiteMapping> Sites = SiteList.ToDictionary(site => site.SiteIdentifier);
 
+        public static string GetSiteIdentifierByCode(string code)
+        {
+            foreach (var site in Sites.Values)
+            {
+                if (site.CodeMapping.ContainsValue(code))
+                {
+                    return site.SiteIdentifier;
+                }
+            }
+            return string.Empty;
+        }
+
+        public static string GetSiteIdentifierByKey(string key)
+        {
+            foreach (var site in Sites.Values)
+            {
+
+                if (site.CodeMapping.TryGetValue(key, out var result))
+                {
+                    return result;
+                }
+            }
+            return string.Empty;
+        }
+        public static string GetKeyByCode(string code)
+        {
+            foreach (var site in Sites.Values)
+            {
+                var entry = site.CodeMapping.FirstOrDefault(x => x.Value.Equals(code));
+                if (!string.IsNullOrEmpty(entry.Key))
+                {
+                    return entry.Key; 
+                }
+            }
+            return string.Empty; 
+        }
+
         public static string GetButtonCode(string siteIdentifier, string buttonText)
         {
             if (Sites.TryGetValue(siteIdentifier, out var site) &&
                 site.CodeMapping.TryGetValue(buttonText, out var code))
             {
                 return code;
+            }
+            return string.Empty;
+        }
+
+        public static string GetValueByKey(string key)
+        {
+            foreach (var site in Sites.Values)
+            {
+                if (site.CodeMapping.TryGetValue(key, out var result))
+                {
+                    return result;
+                }
             }
             return string.Empty;
         }
@@ -108,43 +157,7 @@
                     return site.SiteName;
                 }
             }
-            return string.Empty; 
-        }
-
-        public static string GetKeyByCode(string code)
-        {
-            foreach (var site in Sites.Values)
-            {
-                var entry = site.CodeMapping.FirstOrDefault(x => x.Value.Equals(code));
-                if (!string.IsNullOrEmpty(entry.Key))
-                {
-                    return entry.Key; 
-                }
-            }
-            return string.Empty; 
-        }
-        public static string GetValueByKey(string key)
-        {
-            foreach (var site in Sites.Values)
-            {
-                if (site.CodeMapping.TryGetValue(key, out var result))
-                {
-                    return result;
-                }
-            }
             return string.Empty;
-        }
-
-        public static string GetSiteIdentifierByCode(string code)
-        {
-            foreach (var site in Sites.Values)
-            {
-                if (site.CodeMapping.ContainsValue(code))
-                {
-                    return site.SiteIdentifier;
-                }
-            }
-            return string.Empty; 
         }
     }
 }
