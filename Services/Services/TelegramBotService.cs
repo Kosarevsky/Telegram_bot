@@ -103,11 +103,11 @@ namespace Services.Services
             IncrementMessageCount(userId);
             if (MessageCountFromUser(userId) == 10)
             {
-                BanUser(userId, 60);
+                await SendTextMessage(userId, "Слишком много сообщений. Отдохнем пару минут");
             }
             if (MessageCountFromUser(userId) == 11)
             {
-                await SendTextMessage(userId, "Слишком много сообщений. Отдохнем пару минут");
+                BanUser(userId, 60);
             }
 
             if (!IsUserBanned(userId))
@@ -281,7 +281,7 @@ namespace Services.Services
             {
                 foreach (var el in userSubscription)
                 {
-                    var subscriptionName = $"{CodeMapping.GetSiteIdentifierByKey(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
+                    var subscriptionName = $"{CodeMapping.GetSiteIdentifierByCode(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
                     if (!string.IsNullOrEmpty(subscriptionName))
                     {
                         listSubscription.Add(TruncateText(subscriptionName, 47));

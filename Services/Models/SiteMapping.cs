@@ -98,7 +98,7 @@
 
                 if (site.CodeMapping.TryGetValue(key, out var result))
                 {
-                    return result;
+                    return site.SiteIdentifier;
                 }
             }
             return string.Empty;
