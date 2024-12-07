@@ -3,7 +3,7 @@ namespace BezKolejki_bot.Interfaces
 {
     public interface IBrowserAutomationService
     {
-        Task GetAvailableDateAsync(List<string> url);
+        Task GetAvailableDateAsync(IEnumerable<string> url);
     }
 }
 

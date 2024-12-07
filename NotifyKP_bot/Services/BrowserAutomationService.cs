@@ -6,7 +6,6 @@ using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using Services.Interfaces;
 using Services.Models;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace BezKolejki_bot.Services
@@ -31,7 +30,7 @@ namespace BezKolejki_bot.Services
                 throw new InvalidOperationException("Timeout Task Scheduled interval is not properly configured.");
             }
         }
-        public async Task GetAvailableDateAsync(List<string> urls)
+        public async Task GetAvailableDateAsync(IEnumerable<string> urls)
         {
             var tasks = urls.Select(url => ProcessSiteAsync(url)).ToList();
             await Task.WhenAll(tasks);
@@ -42,7 +41,7 @@ namespace BezKolejki_bot.Services
             options.AddExcludedArgument("enable-automation");
             options.AddAdditionalOption("useAutomationExtension", false); 
             options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
-            options.AddArgument("--headless");
+            //options.AddArgument("--headless");
             options.AddArgument("--incognito");
 
             var cancellationTokenSource = new CancellationTokenSource();
@@ -154,52 +153,65 @@ namespace BezKolejki_bot.Services
                         }
                     };
 
-                    options.NetworkResponseReceived += networkHandler; //Subscribe event
-
-                    while (!success)
+                    try
                     {
-                        try
+                        options.NetworkResponseReceived += networkHandler; //Subscribe event
+                        while (!success)
                         {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            var currentButtons = driver.FindElement(By.Id("Operacja2"))
-                                                       .FindElements(By.TagName("button"))
-                                                       .ToList();
-                            var button = currentButtons.FirstOrDefault(b => b.Text == buttonText);
-                            if (button == null)
+                            try
                             {
-                                _logger.LogWarning($"Button with text '{buttonText}' not found. Skipping.");
+                                cancellationToken.ThrowIfCancellationRequested();
+                                var currentButtons = driver.FindElement(By.Id("Operacja2"))
+                                                           .FindElements(By.TagName("button"))
+                                                           .ToList();
+                                var button = currentButtons.FirstOrDefault(b => b.Text == buttonText);
+                                if (button == null)
+                                {
+                                    _logger.LogWarning($"Button with text '{buttonText}' not found. Skipping.");
+                                    success = true;
+                                    continue;
+                                }
+
+                                await Task.Delay(1500);
+                                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                                await Task.Delay(1000);
+
+                                button.Click();
+
+
+                                await Task.Delay(1000);
+                                wait.Until(d =>
+                                {
+                                    var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
+                                    return loadingElement.GetCssValue("display") == "none";
+                                });
+
+                                if (await ErrorCaptchaAsync(driver, buttonText))
+                                {
+                                    continue;
+                                };
+
                                 success = true;
-                                continue;
+                                index++;
                             }
-
-                            await Task.Delay(1500);
-                            ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                            await Task.Delay(1000);
-
-                            button.Click();
-
-                            await Task.Delay(1000);
-                            wait.Until(d =>
+                            catch (StaleElementReferenceException ex)
                             {
-                                var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
-                                return loadingElement.GetCssValue("display") == "none";
-                            });
-
-                            if (await ErrorCaptchaAsync(driver, buttonText))
-                            {
-                                continue;
-                            };
-
-                            success = true;
-                            index++;
-                        }
-                        catch (StaleElementReferenceException ex)
-                        {
-                            _logger.LogInformation($"Stale element detected. Retrying for current button. {ex.Message}");
-                            await Task.Delay(1000);
+                                _logger.LogInformation($"Stale element detected. Retrying for current button. {ex.Message}");
+                                await Task.Delay(1000);
+                            }
                         }
                     }
-                    options.NetworkResponseReceived -= networkHandler;
+                    catch (Exception)
+                    {
+                        _logger.LogWarning("Error event");
+                        throw;
+                    }
+                    finally
+                    {
+                        options.NetworkResponseReceived -= networkHandler;
+                    }
+
+                  
                 }
                 await options.StopMonitoring();
             }
@@ -221,16 +233,25 @@ namespace BezKolejki_bot.Services
 
             while (retryCount < maxRetryCount)
             {
-                if (!driver.FindElements(By.ClassName("sweet-modal-warning")).Any())
+                var captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
+                if (captchaElement == null)
                 {
                     return false;
                 }
 
-                _logger.LogInformation($"{CodeMapping.GetSiteIdentifierByKey(buttonText)} Captcha detected on attempt {retryCount + 1} Refreshing the page");
+                retryCount++;
+                _logger.LogInformation($"{CodeMapping.GetSiteIdentifierByKey(buttonText)} Captcha detected on attempt {retryCount} Refreshing the page");
 
                 await Task.Delay(2000);
                 driver.Navigate().Refresh();
                 await Task.Delay(4000);
+
+                captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
+
+                if (captchaElement != null)
+                {
+                    continue;
+                }
 
                 var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
                 if (button != null)
@@ -240,12 +261,11 @@ namespace BezKolejki_bot.Services
                     await Task.Delay(500);
                     button.Click();
                     await Task.Delay(1000);
-                    return true;
                 }
-                retryCount++;
-
             }
             _logger.LogError($"Exceeded maximum retry attempts ({maxRetryCount}) for captcha resolution.");
+            driver.Navigate().Refresh();
+            await Task.Delay(4000);
             return true;
         }
         private static string TruncateText(string text, int maxLength)
@@ -286,37 +306,6 @@ namespace BezKolejki_bot.Services
             {
                 _logger.LogInformation($"No dates available to save ({code} {buttonName})");
             }
-        }
-
-        static string ExtractDateFromClass(string classAttribute)
-        {
-            var match = Regex.Match(classAttribute, @"id-(\d{4}-\d{2}-\d{2})");
-            return match.Success ? match.Groups[1].Value : string.Empty;
-        }
-
-        private List<DateTime> CollectAvailableDates(IWebDriver driver, WebDriverWait wait)
-        {
-            var dates = new List<DateTime>();
-            try
-            {
-                var elements = wait.Until(d => d.FindElements(By.XPath("//div[contains(@class, 'vc-day')]//span[@aria-disabled='false']")));
-
-                foreach (var element in elements)
-                {
-                    var parentDiv = element.FindElement(By.XPath("./.."));
-                    var dateStrFromClass = ExtractDateFromClass(parentDiv.GetAttribute("class"));
-                    if (DateTime.TryParse(dateStrFromClass, out DateTime result))
-                    {
-                        dates.Add(result);
-                    }
-                }
-            }
-            catch (WebDriverTimeoutException)
-            {
-                _logger.LogInformation("Dates not found");
-            }
-
-            return dates;
         }
     }
 }
