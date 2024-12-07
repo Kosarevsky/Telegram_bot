@@ -7,6 +7,7 @@ using OpenQA.Selenium.Support.UI;
 using Services.Interfaces;
 using Services.Models;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 
 namespace BezKolejki_bot.Services
 {
@@ -17,6 +18,7 @@ namespace BezKolejki_bot.Services
         private readonly IConfiguration _configuration;
         private readonly IEventPublisherService _eventPublisherService;
         private readonly int _interval;
+        private readonly ConcurrentDictionary<string, bool> _processingSite = new();
 
         public BrowserAutomationService(ILogger<BrowserAutomationService> logger, IBezKolejkiService bezKolejkiService, IConfiguration configuration, IEventPublisherService eventPublisherService)
         {
@@ -35,40 +37,58 @@ namespace BezKolejki_bot.Services
             var tasks = urls.Select(url => ProcessSiteAsync(url)).ToList();
             await Task.WhenAll(tasks);
         }
-        private async Task ProcessSiteAsync(string url) {
-            var options = new ChromeOptions();
-            options.AddArgument("--disable-blink-features=AutomationControlled");
-            options.AddExcludedArgument("enable-automation");
-            options.AddAdditionalOption("useAutomationExtension", false); 
-            options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
-            //options.AddArgument("--headless");
-            options.AddArgument("--incognito");
-
-            var cancellationTokenSource = new CancellationTokenSource();
-            var timer = new Timer(state =>
+        private async Task ProcessSiteAsync(string url) 
+        {
+            if (_processingSite.ContainsKey(url))
             {
-                _logger.LogWarning("Browser automation timed out. Closing the browser.");
-                cancellationTokenSource.Cancel();
-            }, null, TimeSpan.FromSeconds(_interval), Timeout.InfiniteTimeSpan);
-
+                _logger.LogInformation($"Site '{url}' is already being processed. Skipping...");
+                return;
+            }
+            else {
+                _processingSite.TryAdd(url, true);
+            }
+            
             try
             {
-                using (var driver = new ChromeDriver(options))
-                {
-                    driver.Navigate().GoToUrl(url);
-                    await Task.Delay(1500);
+                var options = new ChromeOptions();
+                options.AddArgument("--disable-blink-features=AutomationControlled");
+                options.AddExcludedArgument("enable-automation");
+                options.AddAdditionalOption("useAutomationExtension", false);
+                options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
+                //options.AddArgument("--headless");
+                options.AddArgument("--incognito");
 
-                    var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                    await ExecuteBrowserAutomation(driver, wait, cancellationTokenSource.Token);
+                var cancellationTokenSource = new CancellationTokenSource();
+                var timer = new Timer(state =>
+                {
+                    _logger.LogWarning("Browser automation timed out. Closing the browser.");
+                    cancellationTokenSource.Cancel();
+                }, null, TimeSpan.FromSeconds(_interval), Timeout.InfiniteTimeSpan);
+
+                try
+                {
+                    using (var driver = new ChromeDriver(options))
+                    {
+                        driver.Navigate().GoToUrl(url);
+                        await Task.Delay(1500);
+
+                        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+                        await ExecuteBrowserAutomation(driver, wait, cancellationTokenSource.Token);
+                    }
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogInformation("Browser automation was canceled due to timeout.");
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Browser automation was canceled due to timeout.");
+                }
+                finally
+                {
+                    timer.Dispose();
+                }
+
             }
             finally
             {
-                timer.Dispose();
+                _processingSite.TryRemove(url, out _);
             }
         }
 
@@ -188,11 +208,11 @@ namespace BezKolejki_bot.Services
 
                                 if (await ErrorCaptchaAsync(driver, buttonText))
                                 {
+                                    success = true;
+                                    index++;
                                     continue;
                                 };
 
-                                success = true;
-                                index++;
                             }
                             catch (StaleElementReferenceException ex)
                             {
