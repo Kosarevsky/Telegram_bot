@@ -47,12 +47,20 @@ namespace BezKolejki_bot.Services
             else {
                 _processingSite.TryAdd(url, true);
             }
-            
+
             try
             {
                 var options = new ChromeOptions();
                 options.AddArgument("--disable-blink-features=AutomationControlled");
                 options.AddExcludedArgument("enable-automation");
+                options.AddArgument("--no-sandbox");
+                options.AddArgument("start-maximized");
+                options.AddArgument("disable-infobars");
+                options.AddArgument("--disable-dev-shm-usage");
+                //options.AddArgument("--disable-gpu");
+                options.AddArgument("--enable-unsafe-swiftshader");
+                options.AddArgument("--window-size=1920x1080"); // Устанавливаем размер окна
+
                 options.AddAdditionalOption("useAutomationExtension", false);
                 options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
                 //options.AddArgument("--headless");
@@ -104,9 +112,27 @@ namespace BezKolejki_bot.Services
                 int index = 0;
                 var options = driver.Manage().Network;
                 await options.StartMonitoring();
+                var activeUsers = await _bezKolejkiService.GetActiveUsers();
+
                 while (index < buttonTexts.Count)
                 {
                     var buttonText = buttonTexts[index];
+                    var buttonCode = CodeMapping.GetValueByKey(buttonText);
+                    var countUserBySubscribe = activeUsers
+                        .Where(user => user.Subscriptions.Any(sub => sub.SubscriptionCode == buttonCode))
+                        .Count();
+                    if (countUserBySubscribe <= 0)
+                    {
+                        _logger.LogInformation($"{buttonCode} count subscribers = 0. skipping....");
+                        index++;
+                        continue;
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"{buttonCode} count subscribers has {countUserBySubscribe}");
+                    }
+
+
                     bool success = false;
 
                     bool dataSaved = false; 
@@ -206,24 +232,21 @@ namespace BezKolejki_bot.Services
                                     return loadingElement.GetCssValue("display") == "none";
                                 });
 
-                                if (await ErrorCaptchaAsync(driver, buttonText))
-                                {
-                                    success = true;
-                                    index++;
-                                    continue;
-                                };
-
+                                await ErrorCaptchaAsync(driver, buttonText);
+                                index++;
+                                success = true;
+                                //continue;
                             }
                             catch (StaleElementReferenceException ex)
                             {
-                                _logger.LogInformation($"Stale element detected. Retrying for current button. {ex.Message}");
+                                _logger.LogInformation($"{buttonText}.Stale element detected. Retrying for current button. {ex.Message}");
                                 await Task.Delay(1000);
                             }
                         }
                     }
                     catch (Exception)
                     {
-                        _logger.LogWarning("Error event");
+                        _logger.LogWarning($"{buttonText}.Error event");
                         throw;
                     }
                     finally
@@ -248,8 +271,10 @@ namespace BezKolejki_bot.Services
 
         private async Task<bool> ErrorCaptchaAsync(IWebDriver driver, string buttonText)
         {
-            const int maxRetryCount = 3;
+            const int maxRetryCount = 2;
             int retryCount = 0;
+
+            var prefix = $"{CodeMapping.GetSiteIdentifierByKey(buttonText)} {TruncateText(buttonText,30)}.";
 
             while (retryCount < maxRetryCount)
             {
@@ -260,7 +285,7 @@ namespace BezKolejki_bot.Services
                 }
 
                 retryCount++;
-                _logger.LogInformation($"{CodeMapping.GetSiteIdentifierByKey(buttonText)} Captcha detected on attempt {retryCount} Refreshing the page");
+                _logger.LogInformation($"{prefix} Captcha detected on attempt {retryCount} Refreshing the page");
 
                 await Task.Delay(2000);
                 driver.Navigate().Refresh();
@@ -276,14 +301,14 @@ namespace BezKolejki_bot.Services
                 var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
                 if (button != null)
                 {
-                    _logger.LogInformation($"Re-clicking button '{buttonText}' after captcha refresh.");
+                    _logger.LogInformation($"{prefix}. Re-clicking button after captcha refresh.");
                     ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                     await Task.Delay(500);
                     button.Click();
                     await Task.Delay(1000);
                 }
             }
-            _logger.LogError($"Exceeded maximum retry attempts ({maxRetryCount}) for captcha resolution.");
+            _logger.LogError($"{prefix} Exceeded maximum retry attempts ({maxRetryCount}) for captcha resolution.");
             driver.Navigate().Refresh();
             await Task.Delay(4000);
             return true;

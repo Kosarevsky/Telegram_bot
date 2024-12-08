@@ -33,31 +33,32 @@ namespace BezKolejki_bot.Services
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("ScheduledTaskService is starting.");
-            _timer = new Timer(ExecuteTaskAsync, null, TimeSpan.Zero, TimeSpan.FromSeconds(_interval));
+            _timer = new Timer(state => TimerCallback(state), null, TimeSpan.Zero, TimeSpan.FromSeconds(_interval));
             _logger.LogInformation("Timer is set to interval: {interval} seconds.", _interval);
             return Task.CompletedTask;
         }
-
-        private async void ExecuteTaskAsync(object? state)
+        private async void TimerCallback(object? state)
         {
-            await Task.Run(async () =>
+            await ExecuteTaskAsync();
+        }
+
+        private async Task ExecuteTaskAsync()
+        {
+            _logger.LogInformation("Executing scheduled task");
+            try
             {
-                _logger.LogInformation("Executing scheduled task");
-                try
-                {
-                    var urls = new List<string>() 
+                var urls = new List<string>()
                     {
                         "https://bezkolejki.eu/luwbb/"/*,
                         "https://uw.bezkolejki.eu/ouw",
                         "https://bezkolejki.eu/puw_rzeszow2"*/
                     };
-                    await _browserAutomationService.GetAvailableDateAsync(urls);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError($"Error executing scheduled task: {ex.Message}");
-                }
-            });
+                await _browserAutomationService.GetAvailableDateAsync(urls);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error executing scheduled task: {ex.Message}");
+            }
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
