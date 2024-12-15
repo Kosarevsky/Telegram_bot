@@ -24,7 +24,7 @@ namespace Services.Services
             {
                 try
                 {
-                    var warningThresholdDate = DateTime.UtcNow.AddDays(-7);
+                    var warningThresholdDate = DateTime.Now.AddDays(-7);
                     var DeactivationThresholdDate = warningThresholdDate.AddDays(-1);
                     await CheckInactiveUsers(warningThresholdDate, DeactivationThresholdDate, stoppingToken);
                 }
@@ -50,9 +50,10 @@ namespace Services.Services
 
                     if (user.DateLastSubscription > DeactivationThresholdDate)
                     {
-                        var warningMessage = "Мы заметили, что вы давно не проявляли активности. Если хотите продолжать получать уведомления, ответьте /start";
+                        var differentDate = (DeactivationThresholdDate - user.DateLastSubscription).Duration();
+                        var warningMessage = $"Мы заметили, что вы давно не проявляли активности. \nЕсли вы хотите продолжать получать уведомления, ответьте /start \nИначе рассылка будет прекращена через {(differentDate.Days>0 ? differentDate.Days: string.Empty)} {differentDate.Hours} часов";
                         await _telegramBotService.SendTextMessage(user.TelegramUserId, warningMessage);
-                        _logger.LogInformation($"Warning send to User {user.TelegramUserId} {user.UserName}");
+                        _logger.LogInformation($"Warning send to User {user.TelegramUserId} {user.UserName}\n{warningMessage}");
                     }
                     else
                     {
@@ -60,7 +61,6 @@ namespace Services.Services
                         var DeactivationMessage = "Рассылка сообщений остановлена.";
                         await _telegramBotService.SendTextMessage(user.TelegramUserId, DeactivationMessage);
                         _logger.LogInformation($"User {user.TelegramUserId} {user.UserName} marked as inactive");
-                        continue;
                     }
                 }
                 catch (Exception ex)
