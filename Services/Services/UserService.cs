@@ -39,11 +39,6 @@ namespace Services.Services
             return _mapper.Map<List<UserModel>>(users);
         }
 
-        public async Task<UserModel> GetByTelegramId(long telegramId)
-        {
-            var user = await _database.User.GetAllAsync(u => u.TelegramUserId == telegramId).FirstOrDefaultAsync();
-            return _mapper.Map<UserModel>(user);
-        }
         public async Task SaveSubscription(long telegramId, string code)
         {
            await _database.User.SaveSubscriptionAsync(telegramId, code);
@@ -60,7 +55,7 @@ namespace Services.Services
             await _database.User.UpdateLastNotificationDateAsync(userEntity);
         }
 
-        public void DeactivateUserAsync(long chatId)
+        public async Task DeactivateUserAsync(long chatId)
         {
             var user = _database.User.GetAllAsync(u => u.TelegramUserId == chatId).FirstOrDefault();
             if (user != null) { 

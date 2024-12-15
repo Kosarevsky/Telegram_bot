@@ -8,6 +8,6 @@ namespace Services.Interfaces
 {
     public interface IUserActivityChecker
     {
-        Task CheckInactiveUsers(CancellationToken stoppingToken);
+        Task CheckInactiveUsers(DateTime warningThresholdDate, DateTime DeactivationThresholdDate, CancellationToken stoppingToken);
     }
 }

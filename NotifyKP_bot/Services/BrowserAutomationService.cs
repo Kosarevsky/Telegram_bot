@@ -59,11 +59,11 @@ namespace BezKolejki_bot.Services
                 options.AddArgument("--disable-dev-shm-usage");
                 //options.AddArgument("--disable-gpu");
                 options.AddArgument("--enable-unsafe-swiftshader");
-                options.AddArgument("--window-size=1920x1080"); // Устанавливаем размер окна
+                options.AddArgument("--window-size=1920x1080");
 
                 options.AddAdditionalOption("useAutomationExtension", false);
                 options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
-                //options.AddArgument("--headless");
+                options.AddArgument("--headless");
                 options.AddArgument("--incognito");
 
                 var cancellationTokenSource = new CancellationTokenSource();

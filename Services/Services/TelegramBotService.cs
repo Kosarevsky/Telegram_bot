@@ -249,11 +249,11 @@ namespace Services.Services
             var nameSubscription = CodeMapping.GetKeyByCode(selectedButton);
             if (!string.IsNullOrEmpty(nameSubscription))
             {
-                var user = await _userService.GetByTelegramId(callbackQuery.From.Id);
-
+                var users = await _userService.GetAllAsync(u=>u.TelegramUserId == callbackQuery.From.Id);
+                var user = users.FirstOrDefault();
                 if (user == null || !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
                 {
-                    await _userService.SaveSubscription(callbackQuery.Message.Chat.Id, selectedButton);
+                    await _userService.SaveSubscription(callbackQuery?.Message?.Chat.Id ?? 0 , selectedButton);
                     await SendTextMessage(callbackQuery.Message.Chat.Id, $"Вы подписались на уведомление {nameSubscription}\n");
                     
                     await _eventPublisher.PublishDatesSavedAsync(selectedButton, 
@@ -265,8 +265,8 @@ namespace Services.Services
                 }
                 else
                 {
-                    await _userService.DeleteSubscription(callbackQuery.Message.Chat.Id, selectedButton);
-                    await SendTextMessage(callbackQuery.Message.Chat.Id, $"Вы отписались от уведомления\n{nameSubscription}");
+                    await _userService.DeleteSubscription(callbackQuery.Message?.Chat.Id  ?? 0, selectedButton);
+                    await SendTextMessage(callbackQuery?.Message?.Chat.Id ?? 0, $"Вы отписались от уведомления\n{nameSubscription}");
                 }
             }
         }
@@ -274,29 +274,33 @@ namespace Services.Services
         private async Task SendSubscriptionList(long id,  ReplyKeyboardMarkup mainKeyboard)
         {
             var listSubscription = new List<string>();
-            var user = await _userService.GetByTelegramId(id);
-            var userSubscription = user?.Subscriptions.ToList();
-
-            if (user != null && userSubscription != null)
+            var users = await _userService.GetAllAsync(u=> u.TelegramUserId == id);
+            if (users != null)
             {
-                foreach (var el in userSubscription)
+                var user = users.FirstOrDefault();
+                var userSubscription = user?.Subscriptions.ToList();
+
+                if (user != null && userSubscription != null)
                 {
-                    var subscriptionName = $"{CodeMapping.GetSiteIdentifierByCode(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
-                    if (!string.IsNullOrEmpty(subscriptionName))
+                    foreach (var el in userSubscription)
                     {
-                        listSubscription.Add(TruncateText(subscriptionName, 47));
+                        var subscriptionName = $"{CodeMapping.GetSiteIdentifierByCode(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
+                        if (!string.IsNullOrEmpty(subscriptionName))
+                        {
+                            listSubscription.Add(TruncateText(subscriptionName, 47));
+                        }
                     }
-                }
 
-                var subscriptionsMessage = string.Join(Environment.NewLine, listSubscription);
+                    var subscriptionsMessage = string.Join(Environment.NewLine, listSubscription);
 
-                if (subscriptionsMessage.Length == 0)
-                {
-                    await SendTextMessage(id, "У вас нет подписок.\nВыберите город и подпишитесь на услугу", replyMarkup: mainKeyboard);
-                }
-                else
-                {
-                    await SendTextMessage(id, $"Перечень активных подписок:  \n{subscriptionsMessage}", replyMarkup: mainKeyboard);
+                    if (subscriptionsMessage.Count() == 0)
+                    {
+                        await SendTextMessage(id, "У вас нет подписок.\nВыберите город и подпишитесь на услугу", replyMarkup: mainKeyboard);
+                    }
+                    else
+                    {
+                        await SendTextMessage(id, $"Перечень активных подписок:  \n{subscriptionsMessage}", replyMarkup: mainKeyboard);
+                    }
                 }
             }
         }
@@ -374,7 +378,7 @@ namespace Services.Services
             }
             catch (ApiRequestException ex) when (ex.ErrorCode == 429)
             {
-                int retryAfter = ex.Parameters.RetryAfter ?? 5;
+                int retryAfter = ex?.Parameters?.RetryAfter ?? 5;
                 _logger.LogWarning($"Too many requests. Retrying after {retryAfter} seconds.");
                 await Task.Delay(retryAfter * 1000, cancellationToken);
                 await SendTextMessage(chatId, messageText, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
@@ -383,7 +387,7 @@ namespace Services.Services
 
         private async Task DeactivateUserAsync(long chatId)
         {
-            _userService.DeactivateUserAsync(chatId);
+            await _userService.DeactivateUserAsync(chatId);
         }
 
         public void IncrementMessageCount(long telegramId)
@@ -396,10 +400,10 @@ namespace Services.Services
             return _userMessageCounts.TryGetValue(telegramId, out var count) ? count :0;
         }
 
-        public void BanUser(long telegramId, int durationInSecound)
+        public void BanUser(long telegramId, int durationInSecond)
         {
-            _logger.LogWarning($"User {telegramId} banned in {durationInSecound}");
-            _usersBan[telegramId] =  DateTime.UtcNow.AddSeconds(durationInSecound);
+            _logger.LogWarning($"User {telegramId} banned in {durationInSecond}");
+            _usersBan[telegramId] =  DateTime.UtcNow.AddSeconds(durationInSecond);
         }
 
         public bool IsUserBanned(long telegramId)

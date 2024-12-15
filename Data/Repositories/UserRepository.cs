@@ -120,7 +120,7 @@ namespace Data.Repositories
 
                 await _context.SaveChangesAsync();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 throw;
             }
