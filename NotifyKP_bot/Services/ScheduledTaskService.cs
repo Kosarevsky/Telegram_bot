@@ -9,18 +9,18 @@ namespace BezKolejki_bot.Services
     public class ScheduledTaskService : IHostedService, IDisposable, IScheduledTaskService
     {
         private readonly ILogger<ScheduledTaskService> _logger;
-        private readonly IBrowserAutomationService _browserAutomationService;
+        private readonly IBrowserSiteProcessor _browserSiteProcessor;
         private readonly INotificationService _notificationService;
         private Timer _timer = null!;
         private readonly int _interval;
         public ScheduledTaskService(
             ILogger<ScheduledTaskService> logger, 
-            IBrowserAutomationService browserAutomationService, 
+            IBrowserSiteProcessor browserSiteProcessor, 
             IConfiguration configuration,
             INotificationService notificationService)
         {
             _logger = logger;
-            _browserAutomationService = browserAutomationService;
+            _browserSiteProcessor = browserSiteProcessor;
             _notificationService = notificationService;
 
             var bialaTaskScheduled = configuration["ScheduledTask:RunTaskBezKolejki"];
@@ -51,9 +51,10 @@ namespace BezKolejki_bot.Services
                     {
                         "https://bezkolejki.eu/luwbb/",
                         "https://uw.bezkolejki.eu/ouw",
-                        "https://bezkolejki.eu/puw_rzeszow2"
+                        "https://bezkolejki.eu/puw_rzeszow2",
+                        "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php"
                     };
-                await _browserAutomationService.GetAvailableDateAsync(urls);
+                await _browserSiteProcessor.GetAvailableDateAsync(urls);
             }
             catch (Exception ex)
             {
