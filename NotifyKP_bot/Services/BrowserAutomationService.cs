@@ -8,6 +8,7 @@ using Services.Interfaces;
 using Services.Models;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
+using OpenQA.Selenium.DevTools;
 
 namespace BezKolejki_bot.Services
 {
@@ -218,14 +219,18 @@ namespace BezKolejki_bot.Services
                                     continue;
                                 }
 
-                                await Task.Delay(1500);
-                                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                                //await Task.Delay(1500);
+                                await Task.Delay(new Random().Next(1000, 3000));
+                                //((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                                ((IJavaScriptExecutor)driver).ExecuteScript("window.scrollTo(arguments[0].offsetLeft, arguments[0].offsetTop);", button);
+
                                 await Task.Delay(1000);
 
                                 button.Click();
 
 
-                                await Task.Delay(1000);
+                                //await Task.Delay(1000);
+                                await Task.Delay(new Random().Next(1000, 3000));
                                 wait.Until(d =>
                                 {
                                     var loadingElement = driver.FindElement(By.CssSelector(".vld-overlay.is-active"));
@@ -287,9 +292,9 @@ namespace BezKolejki_bot.Services
                 retryCount++;
                 _logger.LogInformation($"{prefix} Captcha detected on attempt {retryCount} Refreshing the page");
 
-                await Task.Delay(2000);
+                await Task.Delay(new Random().Next(1500, 2500));
                 driver.Navigate().Refresh();
-                await Task.Delay(4000);
+                await Task.Delay(new Random().Next(3000, 4000));
 
                 captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
 
@@ -302,7 +307,7 @@ namespace BezKolejki_bot.Services
                 if (button != null)
                 {
                     _logger.LogInformation($"{prefix}. Re-clicking button after captcha refresh.");
-                    ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                    ((IJavaScriptExecutor)driver).ExecuteScript("window.scrollTo(arguments[0].offsetLeft, arguments[0].offsetTop);", button);
                     await Task.Delay(500);
                     button.Click();
                     await Task.Delay(1000);
