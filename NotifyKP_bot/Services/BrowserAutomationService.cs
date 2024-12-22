@@ -1,15 +1,10 @@
 ﻿using BezKolejki_bot.Interfaces;
 using Microsoft.Extensions.Logging;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BezKolejki_bot.Services
 {
-    public class BrowserAutomationService : IBrowserAutomationService
+    public class BrowserAutomationService : ISiteProcessor
     {
         private readonly ILogger<BrowserAutomationService> _logger;
         private readonly SiteProcessorFactory _siteProcessorFactory;
@@ -27,6 +22,11 @@ namespace BezKolejki_bot.Services
         {
             var tasks = urls.Select(url => ProcessSiteAsync(url)).ToList();
             await Task.WhenAll(tasks);
+        }
+
+        public Task ProcessSiteAsync(string url, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         private async Task ProcessSiteAsync(string url)

@@ -67,9 +67,10 @@ namespace BezKolejki_bot
 
 
                     services.AddTransient<IBezKolejkiService, BezKolejkiService>();
-     
+                    services.AddTransient<IBrowserSiteProcessor, BrowserSiteProcessor>();
+;     
                     services.AddTransient<IUserService, UserService>();
-                    services.AddTransient<ISiteProcessor, BrowserSiteProcessor>();
+                    //services.AddTransient<ISiteProcessor, BrowserSiteProcessor>();
 
                     services.AddHostedService<ScheduledTaskService>();
                     services.AddHostedService<UserActivityChecker>();

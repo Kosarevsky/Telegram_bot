@@ -1,10 +1,5 @@
 ﻿using BezKolejki_bot.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BezKolejki_bot.Services
 {
@@ -21,7 +16,7 @@ namespace BezKolejki_bot.Services
         {
             if (url.Contains("bezkolejki"))
             {
-                return _serviceProvider.GetRequiredService<BrowserSiteProcessor>();
+                return (ISiteProcessor)_serviceProvider.GetRequiredService<BrowserSiteProcessor>();
             }
             else if (url.Contains("https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php"))
             {

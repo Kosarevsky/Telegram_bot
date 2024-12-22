@@ -8,10 +8,13 @@ using Services.Interfaces;
 using Services.Models;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
+using SeleniumUndetectedChromeDriver;
+using Data.Context;
+using OpenQA.Selenium.Interactions;
 
 namespace BezKolejki_bot.Services
 {
-    public class BrowserSiteProcessor : ISiteProcessor
+    public class BrowserSiteProcessor : IBrowserSiteProcessor
     {
         private readonly ILogger<BrowserSiteProcessor> _logger;
         private readonly IBezKolejkiService _bezKolejkiService;
@@ -20,6 +23,7 @@ namespace BezKolejki_bot.Services
         private readonly int _interval;
         private readonly ConcurrentDictionary<string, bool> _processingSite = new();
         private readonly Dictionary<string, ISiteProcessor> _siteProcessor = new();
+        private readonly Boolean _browserIsVisible = false;
 
         public BrowserSiteProcessor(ILogger<BrowserSiteProcessor> logger, IBezKolejkiService bezKolejkiService, IConfiguration configuration, IEventPublisherService eventPublisherService)
         {
@@ -28,15 +32,17 @@ namespace BezKolejki_bot.Services
             _configuration = configuration;
             _eventPublisherService = eventPublisherService;
             var timeOutBrowser = configuration["ScheduledTask:TimeOutBrowser"];
+            var browserIsVisible = configuration["ScheduledTask:BrowserIsVisible"];
+
+            if (!Boolean.TryParse(browserIsVisible, out _browserIsVisible)) 
+            {
+                throw new InvalidOperationException("Browser visibility property not set");
+            }
+
             if (!int.TryParse(timeOutBrowser, out _interval) || _interval <= 0)
             {
                 throw new InvalidOperationException("Timeout Task Scheduled interval is not properly configured.");
             }
-        }
-
-        public Task ProcessSiteAsync(string url, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
         }
 
         public async Task GetAvailableDateAsync(IEnumerable<string> urls)
@@ -57,21 +63,30 @@ namespace BezKolejki_bot.Services
 
             try
             {
-                var options = new ChromeOptions();
-                options.AddArgument("--disable-blink-features=AutomationControlled");
-                options.AddExcludedArgument("enable-automation");
-                options.AddArgument("--no-sandbox");
-                options.AddArgument("start-maximized");
-                options.AddArgument("disable-infobars");
-                options.AddArgument("--disable-dev-shm-usage");
-                //options.AddArgument("--disable-gpu");
-                options.AddArgument("--enable-unsafe-swiftshader");
-                options.AddArgument("--window-size=1920x1080");
 
-                options.AddAdditionalOption("useAutomationExtension", false);
-                options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
-                options.AddArgument("--headless");
+                var options = new ChromeOptions();
+                //options.AddArgument("--disable-blink-features=AutomationControlled");
+                //options.AddExcludedArgument("enable-automation");
+                options.AddArgument("--no-sandbox");
+                //options.AddArgument("start-maximized");
+                //options.AddArgument("disable-infobars");
+                //options.AddArgument("--disable-dev-shm-usage");
+                //options.AddArgument("--enable-unsafe-swiftshader");
+                //options.AddArgument("--window-size=1920x1080");
+
+                //options.AddAdditionalOption("useAutomationExtension", false);
+                //options.AddArgument("accept-language='ru-RU,ru;q=0.9'");
+                //options.AddArgument("referer='https://bezkolejki.eu/luwbb/'");
+                //options.AddArgument("sec-ch-ua='Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"'");
+                options.AddArgument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
+                options.AddArgument("--window-size=1,1");
+                //options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
                 options.AddArgument("--incognito");
+
+                if (!_browserIsVisible) {
+                    options.AddArgument("--headless");
+                }
+
 
                 var cancellationTokenSource = new CancellationTokenSource();
                 var timer = new Timer(state =>
@@ -82,7 +97,9 @@ namespace BezKolejki_bot.Services
 
                 try
                 {
-                    using (var driver = new ChromeDriver(options))
+                    using (var driver = UndetectedChromeDriver.Create(options,
+                            driverExecutablePath:
+                                await new ChromeDriverInstaller().Auto()))
                     {
                         driver.Navigate().GoToUrl(url);
                         await Task.Delay(1500);
@@ -153,7 +170,8 @@ namespace BezKolejki_bot.Services
                             {
                                 try
                                 {
-                                    var data = JsonConvert.DeserializeObject<BezKolejkiJsonModel>(responseBody);
+                                    var settings = new JsonSerializerSettings { Error = (sender, args) => { args.ErrorContext.Handled = true; } };
+                                    var data = JsonConvert.DeserializeObject<BezKolejkiJsonModel>(responseBody, settings);
 
                                     if (data != null)
                                     {
@@ -198,6 +216,10 @@ namespace BezKolejki_bot.Services
                                         }
                                     }
                                 }
+                                catch (JsonSerializationException ex)
+                                {
+                                    _logger.LogWarning($"Error deserializing JSON: {ex.Message}, Response: {responseBody}");
+                                }
                                 catch (Exception)
                                 {
                                     _logger.LogInformation($"{buttonText} not a json object: {responseBody}");
@@ -227,9 +249,11 @@ namespace BezKolejki_bot.Services
 
                                 await Task.Delay(1500);
                                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                                await Task.Delay(1000);
+                                await Task.Delay(500);
 
-                                button.Click();
+                                await clickWizardIcon(driver);
+                                await Task.Delay(100);
+                                await ClickButton(driver,  button);
 
 
                                 await Task.Delay(1000);
@@ -242,7 +266,6 @@ namespace BezKolejki_bot.Services
                                 await ErrorCaptchaAsync(driver, buttonText);
                                 index++;
                                 success = true;
-                                //continue;
                             }
                             catch (StaleElementReferenceException ex)
                             {
@@ -254,7 +277,6 @@ namespace BezKolejki_bot.Services
                     catch (Exception)
                     {
                         _logger.LogWarning($"{buttonText}.Error event");
-                        throw;
                     }
                     finally
                     {
@@ -276,21 +298,65 @@ namespace BezKolejki_bot.Services
             }
         }
 
+        private async Task clickWizardIcon(IWebDriver driver)
+        {
+            var wizardElement = driver.FindElements(By.ClassName("wizard-icon")).FirstOrDefault();
+            if (wizardElement != null)
+            {
+                var actions = new Actions(driver);
+                actions.MoveToElement(wizardElement);
+                await Task.Delay(10);
+                actions.Click().Perform();
+            }
+        }
+        private async Task ClickButton(IWebDriver driver,  IWebElement button)
+        {
+            try
+            {
+                var actions = new Actions(driver);
+                actions.MoveToElement(button);
+                actions.SendKeys(Keys.Backspace).Perform(); 
+
+/*                for (int i = 0; i < 100; i++)
+                {
+                    await Task.Delay(1000);
+                    //actions.SendKeys(Keys.ArrowDown).Perform();
+
+                    if (button.Displayed)
+                    {
+                        break;
+                    }
+                }*/
+                await Task.Delay(10);
+                actions.Click().Perform();
+                /*                var location = button.Location;
+                                MouseMover.MoveMouseSmoothly(100, 100, location.X, location.Y, 50, 20, 30);
+                                MouseMover.ClickMouse();
+                                button.Click();*/
+            }
+            catch (NoSuchDriverException ex)
+            {
+                _logger.LogInformation($"Button '{button.Text}' not found. Error: {ex.Message}");
+
+            }
+
+        }
+
         private async Task<bool> ErrorCaptchaAsync(IWebDriver driver, string buttonText)
         {
-            const int maxRetryCount = 2;
             int retryCount = 0;
+            var prefix = $"{CodeMapping.GetSiteIdentifierByKey(buttonText)} {TruncateText(buttonText, 30)}.";
+            const int maxRetryCount = 2;
 
-            var prefix = $"{CodeMapping.GetSiteIdentifierByKey(buttonText)} {TruncateText(buttonText,30)}.";
-
-            while (retryCount < maxRetryCount)
+            var captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
+            if (captchaElement == null)
             {
-                var captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
-                if (captchaElement == null)
-                {
-                    return false;
-                }
+                return false;
+            }
 
+
+            while (retryCount < maxRetryCount && captchaElement != null)
+            {
                 retryCount++;
                 _logger.LogInformation($"{prefix} Captcha detected on attempt {retryCount} Refreshing the page");
 
@@ -299,22 +365,29 @@ namespace BezKolejki_bot.Services
                 await Task.Delay(4000);
 
                 captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
-
-                if (captchaElement != null)
+                if (captchaElement == null)
                 {
-                    continue;
+                    var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
+                    if (button != null)
+                    {
+                        _logger.LogInformation($"{prefix}. Re-clicking button after captcha refresh.");
+                        ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
+                        await Task.Delay(500);
+                        await clickWizardIcon(driver);
+                        await Task.Delay(500);
+                        await ClickButton(driver, button);
+                        //button.Click();
+                        await Task.Delay(2000);
+                    }
                 }
 
-                var button = driver.FindElements(By.XPath($"//button[contains(text(), '{buttonText}')]")).FirstOrDefault();
-                if (button != null)
+                captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
+                if (captchaElement == null)
                 {
-                    _logger.LogInformation($"{prefix}. Re-clicking button after captcha refresh.");
-                    ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                    await Task.Delay(500);
-                    button.Click();
-                    await Task.Delay(1000);
+                    return false;
                 }
             }
+
             _logger.LogError($"{prefix} Exceeded maximum retry attempts ({maxRetryCount}) for captcha resolution.");
             driver.Navigate().Refresh();
             await Task.Delay(4000);
@@ -359,7 +432,5 @@ namespace BezKolejki_bot.Services
                 _logger.LogInformation($"No dates available to save ({code} {buttonName})");
             }
         }
-
-
     }
 }
