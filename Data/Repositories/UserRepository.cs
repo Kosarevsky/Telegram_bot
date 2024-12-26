@@ -99,7 +99,6 @@ namespace Data.Repositories
                         FirstName = userTg.FirstName,
                         LastName = userTg.LastName,
                         UserName = userTg.UserName,
-                        IsForum = userTg.IsForum,
                         Title = userTg.Title,
                         IsActive = true,
                         Subscriptions = new List<UserSubscription>()
@@ -113,7 +112,6 @@ namespace Data.Repositories
                     user.FirstName = userTg.FirstName;
                     user.LastName = userTg.LastName;
                     user.UserName = userTg.UserName;
-                    user.IsForum = userTg.IsForum;
                     user.Title = userTg.Title;
                     user.IsActive = true;
                 }

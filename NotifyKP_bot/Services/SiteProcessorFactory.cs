@@ -20,7 +20,11 @@ namespace BezKolejki_bot.Services
             }
             else if (url.Contains("https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php"))
             {
-                return _serviceProvider.GetRequiredService<PostRequestProcessor>();
+                return _serviceProvider.GetRequiredService<OlsztynPostRequestProcessor>();
+            }
+            else if (url.Contains("https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/pl"))
+            {
+                return _serviceProvider.GetRequiredService<GdanskPostRequestProcessor>();
             }
             throw new NotSupportedException($"No processor found for URL: {url}");
         }

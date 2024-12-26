@@ -130,6 +130,7 @@ namespace BezKolejki_bot.Services
 
                 while (index < buttonTexts.Count)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var buttonText = buttonTexts[index];
                     var buttonCode = CodeMapping.GetValueByKey(buttonText);
                     var countUserBySubscribe = activeUsers
@@ -243,6 +244,7 @@ namespace BezKolejki_bot.Services
 
                                 await clickWizardIcon(driver);
                                 await Task.Delay(2100);
+                                cancellationToken.ThrowIfCancellationRequested();
                                 await ClickButton(driver,  button);
 
 
@@ -253,7 +255,7 @@ namespace BezKolejki_bot.Services
                                     return loadingElement.GetCssValue("display") == "none";
                                 });
 
-                                await ErrorCaptchaAsync(driver, buttonText);
+                                await ErrorCaptchaAsync(driver, buttonText, cancellationToken);
                                 index++;
                                 success = true;
                             }
@@ -264,10 +266,13 @@ namespace BezKolejki_bot.Services
                             }
                         }
                     }
+                    catch (OperationCanceledException ex)
+                    {
+                        _logger.LogWarning($"Операция была отменена.при обработке кнопки {buttonText} {ex.Message}\nStackTrace: {ex.StackTrace}");
+                    }
                     catch (Exception ex)
                     {
                         _logger.LogWarning($"{buttonText}. Error event: {ex.Message}\nStackTrace: {ex.StackTrace}");
-
                     }
                     finally
                     {
@@ -306,7 +311,7 @@ namespace BezKolejki_bot.Services
                 actions.MoveToElement(button);
                 //actions.SendKeys(Keys.Backspace).Perform(); 
 
-                await Task.Delay(100);
+                await Task.Delay(500);
                 actions.Click().Perform();
             }
             catch (NoSuchDriverException ex)
@@ -315,7 +320,7 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        private async Task<bool> ErrorCaptchaAsync(IWebDriver driver, string buttonText)
+        private async Task<bool> ErrorCaptchaAsync(IWebDriver driver, string buttonText, CancellationToken cancellationToken)
         {
             int retryCount = 0;
             var prefix = $"{CodeMapping.GetSiteIdentifierByKey(buttonText)} {_bezKolejkiService.TruncateText(buttonText, 30)}.";
@@ -329,6 +334,8 @@ namespace BezKolejki_bot.Services
 
             while (retryCount < maxRetryCount && captchaElement != null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 retryCount++;
                 _logger.LogInformation($"{prefix} Captcha detected on attempt {retryCount} Refreshing the page");
 

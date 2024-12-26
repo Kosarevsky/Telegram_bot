@@ -105,7 +105,7 @@ namespace Services.Services
             {
                 await SendTextMessage(userId, "Слишком много сообщений. Отдохнем пару минут");
             }
-            if (MessageCountFromUser(userId) == 11)
+            if (MessageCountFromUser(userId) >= 11)
             {
                 BanUser(userId, 60);
             }
@@ -115,24 +115,31 @@ namespace Services.Services
                 switch (selectedButton)
                 {
                     case "Gdansk":
+                        var questionKeyboardGdansk = new InlineKeyboardMarkup(new[]
+                        {
+                            new [] { InlineKeyboardButton.WithCallbackData("Zezwolenie na pobyt (stały, czasowy), rezydenta, wymiana karty, dokumenty dla cudzoziemców", "/Gdansk01") }
+                        });
+
                         await SendTextMessage(
                             callbackQuery.Message.Chat.Id,
-                            "Гданьск скоро будет. Вы может ускорить процесс купив админу чашечку кофе."
-                            );
+                            "Вы выбрали город Gdansk. Пожалуйста, выберите операцию:",
+                            replyMarkup: questionKeyboardGdansk
+                        );
                         break;
+
                     case "Biala Podlaska":
                         var questionKeyboard = new InlineKeyboardMarkup(new[]
                         {
-                        new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dorośli", "/Biala01") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dzieci", "/Biala02") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - wniosek", "/Biala03") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - braki formalne", "/Biala04") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - odbiór karty", "/Biala05") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - wniosek", "/Biala06") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - braki formalne", "/Biala07") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - odbiór karty", "/Biala08") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Obywatele UE + Polski Dokument Podróży", "/Biala09") }
-                    });
+                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dorośli", "/Biala01") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - dzieci", "/Biala02") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - wniosek", "/Biala03") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - braki formalne", "/Biala04") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Pobyt czasowy - odbiór karty", "/Biala05") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - wniosek", "/Biala06") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - braki formalne", "/Biala07") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Pobyt stały i rezydent - odbiór karty", "/Biala08") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Obywatele UE + Polski Dokument Podróży", "/Biala09") }
+                        });
 
                         await SendTextMessage(
                             callbackQuery.Message.Chat.Id,
@@ -143,11 +150,11 @@ namespace Services.Services
                     case "Opole":
                         var questionKeyboardOpole = new InlineKeyboardMarkup(new[]
                         {
-                        new [] { InlineKeyboardButton.WithCallbackData("Wydawanie dokumentów (karty pobytu, zaproszenia", "/Opole01") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Złożenie wniosku: przez ob. UE i członków ich rodzin/na zaproszenie/o wymianę karty pobytu (w przypadku: zmiany danych umieszczonych w posiadanej karcie pobytu, zmiany wizerunku twarzy, utraty, uszkodzenia) oraz uzupełnianie braków formalnych w tych sprawach", "/Opole02") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o przyznanie Karty Polaka", "/Opole03") },
-                        new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór", "/Opole04") }
-                    });
+                            new [] { InlineKeyboardButton.WithCallbackData("Wydawanie dokumentów (karty pobytu, zaproszenia", "/Opole01") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Złożenie wniosku: przez ob. UE i członków ich rodzin/na zaproszenie/o wymianę karty pobytu (w przypadku: zmiany danych umieszczonych w posiadanej karcie pobytu, zmiany wizerunku twarzy, utraty, uszkodzenia) oraz uzupełnianie braków formalnych w tych sprawach", "/Opole02") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o przyznanie Karty Polaka", "/Opole03") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór", "/Opole04") }
+                        });
 
                         await SendTextMessage(
                             callbackQuery.Message.Chat.Id,
@@ -158,10 +165,10 @@ namespace Services.Services
                     case "Rzeszow":
                         var questionKeyboardRzeszow = new InlineKeyboardMarkup(new[]
                         {
-                        new [] { InlineKeyboardButton.WithCallbackData("1. Odbiór paszportów)", "/Rzeszow01") },
-                        new [] { InlineKeyboardButton.WithCallbackData("4. Składanie wniosków w sprawach obywatelstwa polskiego (nadanie, zrzeczenie, uznanie, potwierdzenie posiadania) - pokój 326, III piętro", "/Rzeszow04") },
-                        new [] { InlineKeyboardButton.WithCallbackData("6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06") }
-                    });
+                            new [] { InlineKeyboardButton.WithCallbackData("1. Odbiór paszportów)", "/Rzeszow01") },
+                            new [] { InlineKeyboardButton.WithCallbackData("4. Składanie wniosków w sprawach obywatelstwa polskiego (nadanie, zrzeczenie, uznanie, potwierdzenie posiadania) - pokój 326, III piętro", "/Rzeszow04") },
+                            new [] { InlineKeyboardButton.WithCallbackData("6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06") }
+                        });
 
                         await SendTextMessage(
                             callbackQuery.Message.Chat.Id,
@@ -169,6 +176,20 @@ namespace Services.Services
                             replyMarkup: questionKeyboardRzeszow
                         );
                         break;
+
+                    case "Olsztyn":
+                        var questionKeyboardOlsztyn = new InlineKeyboardMarkup(new[]
+                        {
+                            new [] { InlineKeyboardButton.WithCallbackData("WMUW Karta Polaka", "/OlsztynKP") }
+                        });
+
+                        await SendTextMessage(
+                            callbackQuery.Message.Chat.Id,
+                            "Вы выбрали город Olsztyn. Пожалуйста, выберите операцию:",
+                            replyMarkup: questionKeyboardOlsztyn
+                        );
+                        break;
+
                     case "/Biala01":
                     case "/Biala02":
                     case "/Biala03":
@@ -185,9 +206,11 @@ namespace Services.Services
                     case "/Rzeszow01":
                     case "/Rzeszow04":
                     case "/Rzeszow06":
+                    case "/Gdansk01":
+                    case "/OlsztynKP":
                         await ProcessSubscriptionSelection(callbackQuery);
                         break;
-                    default:
+
                         await SendTextMessage(
                             callbackQuery.Message.Chat.Id,
                             $"Вы выбрали город: {selectedButton}"
@@ -204,8 +227,7 @@ namespace Services.Services
                 FirstName = message.Chat.FirstName,
                 LastName = message.Chat.LastName,
                 UserName = message.Chat.Username,
-                Title = message.Chat.Title,
-                IsForum = message.Chat.IsForum
+                Title = message.Chat.Title
             };
 
             _logger.LogInformation($"Received message from {message.Chat.Id}: {message.Text}");
@@ -246,15 +268,17 @@ namespace Services.Services
         private async Task ProcessSubscriptionSelection(CallbackQuery callbackQuery)
         {
             var selectedButton = callbackQuery.Data;
-            var nameSubscription = CodeMapping.GetKeyByCode(selectedButton);
-            if (!string.IsNullOrEmpty(nameSubscription))
+            //var nameSubscription = CodeMapping.GetKeyByCode(selectedButton);
+            var message = $"{CodeMapping.GetSiteIdentifierByCode(selectedButton)}. {CodeMapping.GetKeyByCode(selectedButton)}";
+            if (!string.IsNullOrEmpty(message))
             {
                 var users = await _userService.GetAllAsync(u=>u.TelegramUserId == callbackQuery.From.Id);
                 var user = users.FirstOrDefault();
                 if (user == null || !user.Subscriptions.Any(s => s.SubscriptionCode == selectedButton))
                 {
                     await _userService.SaveSubscription(callbackQuery?.Message?.Chat.Id ?? 0 , selectedButton);
-                    await SendTextMessage(callbackQuery.Message.Chat.Id, $"Вы подписались на уведомление {nameSubscription}\n");
+
+                    await SendTextMessage(callbackQuery.Message.Chat.Id, $"Вы подписались на уведомление {message}\n");
                     
                     await _eventPublisher.PublishDatesSavedAsync(selectedButton, 
                         await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(selectedButton), 
@@ -266,7 +290,7 @@ namespace Services.Services
                 else
                 {
                     await _userService.DeleteSubscription(callbackQuery.Message?.Chat.Id  ?? 0, selectedButton);
-                    await SendTextMessage(callbackQuery?.Message?.Chat.Id ?? 0, $"Вы отписались от уведомления\n{nameSubscription}");
+                    await SendTextMessage(callbackQuery?.Message?.Chat.Id ?? 0, $"Вы отписались от уведомления\n{message}");
                 }
             }
         }
@@ -287,7 +311,7 @@ namespace Services.Services
                         var subscriptionName = $"{CodeMapping.GetSiteIdentifierByCode(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
                         if (!string.IsNullOrEmpty(subscriptionName))
                         {
-                            listSubscription.Add(TruncateText(subscriptionName, 47));
+                            listSubscription.Add($"{listSubscription.Count+1}. {TruncateText(subscriptionName, 67)}");
                         }
                     }
 
@@ -323,14 +347,12 @@ namespace Services.Services
         {
             var cityKeyboard = new InlineKeyboardMarkup(new[]
             {
-                    new []
-                    {
-                        InlineKeyboardButton.WithCallbackData("Gdansk", "Gdansk"),
-                        InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska"),
-                        InlineKeyboardButton.WithCallbackData("Opole", "Opole"),
-                        InlineKeyboardButton.WithCallbackData("Rzeszow", "Rzeszow")
-                    }
-                });
+                    new [] { InlineKeyboardButton.WithCallbackData("Gdansk", "Gdansk") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Opole", "Opole") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Rzeszow", "Rzeszow") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Olsztyn", "Olsztyn") }
+            });
 
             await SendTextMessage(
                 tgUser.TelegramUserId,

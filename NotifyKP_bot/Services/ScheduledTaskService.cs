@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using BezKolejki_bot.Interfaces;
-using Services.Interfaces;
 
 namespace BezKolejki_bot.Services
 {
@@ -10,18 +9,15 @@ namespace BezKolejki_bot.Services
     {
         private readonly ILogger<ScheduledTaskService> _logger;
         private readonly IBrowserAutomationService _browserAutomationService;
-        private readonly INotificationService _notificationService;
         private Timer _timer = null!;
         private readonly int _interval;
         public ScheduledTaskService(
             ILogger<ScheduledTaskService> logger, 
             IBrowserAutomationService browserAutomationService,
-            IConfiguration configuration,
-            INotificationService notificationService)
+            IConfiguration configuration)
         {
             _logger = logger;
             _browserAutomationService = browserAutomationService;
-            _notificationService = notificationService;
 
             var bialaTaskScheduled = configuration["ScheduledTask:RunTaskBezKolejki"];
             if (!int.TryParse(bialaTaskScheduled, out _interval) || _interval <= 0)
@@ -34,7 +30,7 @@ namespace BezKolejki_bot.Services
         {
             _logger.LogInformation("ScheduledTaskService is starting.");
             _timer = new Timer(state => TimerCallback(state), null, TimeSpan.Zero, TimeSpan.FromSeconds(_interval));
-            _logger.LogInformation("Timer is set to interval: {interval} seconds.", _interval);
+            _logger.LogInformation($"Timer is set to interval: {_interval} seconds.", _interval);
             return Task.CompletedTask;
         }
         private async void TimerCallback(object? state)
@@ -52,7 +48,8 @@ namespace BezKolejki_bot.Services
                         "https://bezkolejki.eu/luwbb/",
                         "https://uw.bezkolejki.eu/ouw",
                         "https://bezkolejki.eu/puw_rzeszow2",
-                        "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php"
+                        "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php",
+                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/pl"
                     };
                 await _browserAutomationService.GetAvailableDateAsync(urls);
             }

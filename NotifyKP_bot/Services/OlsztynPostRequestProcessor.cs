@@ -9,13 +9,13 @@ using System.Text.RegularExpressions;
 
 namespace BezKolejki_bot.Services
 {
-    public class PostRequestProcessor : ISiteProcessor
+    public class OlsztynPostRequestProcessor : ISiteProcessor
     {
-        private readonly ILogger<PostRequestProcessor> _logger;
+        private readonly ILogger<OlsztynPostRequestProcessor> _logger;
         private readonly IHttpClientFactory _httpClient;
         private readonly IBezKolejkiService _bezKolejkiService;
 
-        public PostRequestProcessor(ILogger<PostRequestProcessor> logger, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService)
+        public OlsztynPostRequestProcessor(ILogger<OlsztynPostRequestProcessor> logger, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService)
         {
             _logger = logger;
             _httpClient = httpClientFactory;

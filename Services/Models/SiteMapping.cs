@@ -37,6 +37,15 @@
         {
             new SiteMapping
             {
+                SiteIdentifier = "Gdansk",
+                SiteName = "POMORSKI URZĄD WOJEWÓDZKI W GDAŃSKU",
+                CodeMapping = new Dictionary<string, string>
+                {
+                    { "Zezwolenie na pobyt (stały, czasowy), rezydenta, wymiana karty, dokumenty dla cudzoziemców", "/Gdansk01" }
+                }
+            },
+            new SiteMapping
+            {
                 SiteIdentifier = "Biala",
                 SiteName = "Lubelski Urząd Wojewódzki - Delegatura w Białej Podlaskiej",
                 CodeMapping = new Dictionary<string, string>
@@ -64,6 +73,7 @@
                     { "Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór ", "/Opole04"}
                 }
             },
+
             new SiteMapping
             {
                 SiteIdentifier = "Rzeszow",
@@ -75,13 +85,14 @@
                     { "6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06" }
                 }
             },
+
             new SiteMapping
             {
                 SiteIdentifier = "Olsztyn",
                 SiteName = "Warmińsko-Mazurski Urząd Wojewódzki w Olsztynie",
                 CodeMapping = new Dictionary<string, string>
                 {
-                    { "Karta Polaka", "/OlsztynKP" }
+                    { "WMUW Karta Polaka", "/OlsztynKP" }
                 }
             }
         };
