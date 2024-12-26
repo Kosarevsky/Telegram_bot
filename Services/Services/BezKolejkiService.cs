@@ -2,6 +2,7 @@
 using Data.Entities;
 using Data.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Services.Interfaces;
 using Services.Models;
 
@@ -11,10 +12,16 @@ namespace Services.Services
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
+        private readonly ILogger<BezKolejkiService> _logger;
+        private readonly IEventPublisherService _eventPublisherService;
 
-        public BezKolejkiService(IUnitOfWork database)
+
+        public BezKolejkiService(IUnitOfWork database, ILogger<BezKolejkiService> logger, IEventPublisherService eventPublisherService)
         {
             _database = database;
+            _logger = logger;
+            _eventPublisherService = eventPublisherService;
+
             var config = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<Data.Entities.User, UserModel>()
@@ -26,6 +33,7 @@ namespace Services.Services
             });
 
             _mapper = config.CreateMapper();
+            _eventPublisherService = eventPublisherService;
         }
 
         public async Task SaveAsync(string code, List<DateTime> dates)
@@ -52,6 +60,46 @@ namespace Services.Services
         {
             var activeUsers = await _database.User.GetAllAsync(u => u.IsActive && u.Subscriptions.Any()).ToListAsync();
             return _mapper.Map<List<UserModel>>(activeUsers);
+        }
+
+        public string TruncateText(string text, int maxLength)
+        {
+            if (string.IsNullOrEmpty(text) || maxLength <= 0)
+                return string.Empty;
+
+            return text.Length > maxLength
+                ? text.Substring(0, maxLength - 3) + "..."
+                : text;
+        }
+
+        public async Task SaveDatesToDatabase(List<DateTime> dates, List<DateTime> previousDates, string code)
+        {
+            var buttonName = TruncateText(CodeMapping.GetKeyByCode(code), 60);
+            if (dates != null && (dates.Any() || previousDates.Any()))
+            {
+                if (!string.IsNullOrEmpty(code))
+                {
+                    try
+                    {
+                        await SaveAsync(code, dates);
+                        _logger.LogInformation($"Save date to {code}, {buttonName}");
+                        await _eventPublisherService.PublishDatesSavedAsync(code, dates, previousDates);
+                    }
+                    catch (Exception)
+                    {
+                        _logger.LogWarning($"Error save or published data {code}");
+                        throw;
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning($"No code found for button ({code} {buttonName})");
+                }
+            }
+            else
+            {
+                _logger.LogInformation($"No dates available to save ({code} {buttonName})");
+            }
         }
     }
 }

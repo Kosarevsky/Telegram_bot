@@ -74,6 +74,15 @@
                     { "4. Składanie wniosków w sprawach obywatelstwa polskiego (nadanie, zrzeczenie, uznanie, potwierdzenie posiadania) - pokój 326, III piętro", "/Rzeszow04" },
                     { "6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06" }
                 }
+            },
+            new SiteMapping
+            {
+                SiteIdentifier = "Olsztyn",
+                SiteName = "Warmińsko-Mazurski Urząd Wojewódzki w Olsztynie",
+                CodeMapping = new Dictionary<string, string>
+                {
+                    { "Karta Polaka", "/OlsztynKP" }
+                }
             }
         };
 

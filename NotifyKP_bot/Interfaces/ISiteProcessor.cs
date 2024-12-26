@@ -2,6 +2,6 @@
 {
     public interface ISiteProcessor
     {
-        Task ProcessSiteAsync(string url, CancellationToken cancellationToken);
+        Task ProcessSiteAsync(string url);
     }
 }

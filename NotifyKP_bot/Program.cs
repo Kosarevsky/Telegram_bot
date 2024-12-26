@@ -44,6 +44,7 @@ namespace BezKolejki_bot
                     }
 
                     services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botToken));
+                    services.AddHttpClient();
 
                     services.AddSingleton<BotContextFactory>();
                     services.AddSingleton<IEventPublisherService, EventPublisherService>();
@@ -67,15 +68,17 @@ namespace BezKolejki_bot
 
 
                     services.AddTransient<IBezKolejkiService, BezKolejkiService>();
-                    services.AddTransient<IBrowserSiteProcessor, BrowserSiteProcessor>();
+                    services.AddTransient<BrowserSiteProcessor>(); // Явная регистрация
+                    services.AddTransient<PostRequestProcessor>(); 
+
+                    services.AddTransient<ISiteProcessorFactory, SiteProcessorFactory>();
+                    services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
 ;     
                     services.AddTransient<IUserService, UserService>();
-                    //services.AddTransient<ISiteProcessor, BrowserSiteProcessor>();
 
                     services.AddHostedService<ScheduledTaskService>();
                     services.AddHostedService<UserActivityChecker>();
                     services.AddScoped<IUserActivityChecker, UserActivityChecker>();
-                    //services.AddSingleton<IScheduledTaskService, ScheduledTaskService>();
 
                     services.AddHostedService<TelegramBotService>();
                     services.AddSingleton<ITelegramBotService, TelegramBotService>();

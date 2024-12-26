@@ -9,28 +9,24 @@ using Services.Models;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using SeleniumUndetectedChromeDriver;
-using Data.Context;
 using OpenQA.Selenium.Interactions;
 
 namespace BezKolejki_bot.Services
 {
-    public class BrowserSiteProcessor : IBrowserSiteProcessor
+    public class BrowserSiteProcessor : ISiteProcessor
     {
         private readonly ILogger<BrowserSiteProcessor> _logger;
         private readonly IBezKolejkiService _bezKolejkiService;
         private readonly IConfiguration _configuration;
-        private readonly IEventPublisherService _eventPublisherService;
         private readonly int _interval;
         private readonly ConcurrentDictionary<string, bool> _processingSite = new();
-        private readonly Dictionary<string, ISiteProcessor> _siteProcessor = new();
         private readonly Boolean _browserIsVisible = false;
 
-        public BrowserSiteProcessor(ILogger<BrowserSiteProcessor> logger, IBezKolejkiService bezKolejkiService, IConfiguration configuration, IEventPublisherService eventPublisherService)
+        public BrowserSiteProcessor(ILogger<BrowserSiteProcessor> logger, IBezKolejkiService bezKolejkiService, IConfiguration configuration)
         {
             _logger = logger;
             _bezKolejkiService = bezKolejkiService;
             _configuration = configuration;
-            _eventPublisherService = eventPublisherService;
             var timeOutBrowser = configuration["ScheduledTask:TimeOutBrowser"];
             var browserIsVisible = configuration["ScheduledTask:BrowserIsVisible"];
 
@@ -45,12 +41,7 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        public async Task GetAvailableDateAsync(IEnumerable<string> urls)
-        {
-            var tasks = urls.Select(url => ProcessSiteAsync(url)).ToList();
-            await Task.WhenAll(tasks);
-        }
-        private async Task ProcessSiteAsync(string url) 
+        public async Task ProcessSiteAsync(string url) 
         {
             if (_processingSite.ContainsKey(url))
             {
@@ -78,8 +69,8 @@ namespace BezKolejki_bot.Services
                 //options.AddArgument("accept-language='ru-RU,ru;q=0.9'");
                 //options.AddArgument("referer='https://bezkolejki.eu/luwbb/'");
                 //options.AddArgument("sec-ch-ua='Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"'");
-                options.AddArgument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
-                options.AddArgument("--window-size=1,1");
+                //options.AddArgument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
+                //options.AddArgument("--window-size=1,1");
                 //options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
                 options.AddArgument("--incognito");
 
@@ -116,7 +107,6 @@ namespace BezKolejki_bot.Services
                 {
                     timer.Dispose();
                 }
-
             }
             finally
             {
@@ -206,7 +196,7 @@ namespace BezKolejki_bot.Services
 
                                         if ((availableDates.Any() || previousDates.Any()) && !dataSaved)
                                         {
-                                            await SaveDatesToDatabase(availableDates, previousDates, code);
+                                            await _bezKolejkiService.SaveDatesToDatabase(availableDates, previousDates, code);
                                             dataSaved = true;
 
                                         }
@@ -249,10 +239,10 @@ namespace BezKolejki_bot.Services
 
                                 await Task.Delay(1500);
                                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                                await Task.Delay(500);
+                                await Task.Delay(2500);
 
                                 await clickWizardIcon(driver);
-                                await Task.Delay(100);
+                                await Task.Delay(2100);
                                 await ClickButton(driver,  button);
 
 
@@ -274,16 +264,15 @@ namespace BezKolejki_bot.Services
                             }
                         }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        _logger.LogWarning($"{buttonText}.Error event");
+                        _logger.LogWarning($"{buttonText}. Error event: {ex.Message}\nStackTrace: {ex.StackTrace}");
+
                     }
                     finally
                     {
                         options.NetworkResponseReceived -= networkHandler;
                     }
-
-                  
                 }
                 await options.StopMonitoring();
             }
@@ -305,7 +294,7 @@ namespace BezKolejki_bot.Services
             {
                 var actions = new Actions(driver);
                 actions.MoveToElement(wizardElement);
-                await Task.Delay(10);
+                await Task.Delay(100);
                 actions.Click().Perform();
             }
         }
@@ -315,37 +304,21 @@ namespace BezKolejki_bot.Services
             {
                 var actions = new Actions(driver);
                 actions.MoveToElement(button);
-                actions.SendKeys(Keys.Backspace).Perform(); 
+                //actions.SendKeys(Keys.Backspace).Perform(); 
 
-/*                for (int i = 0; i < 100; i++)
-                {
-                    await Task.Delay(1000);
-                    //actions.SendKeys(Keys.ArrowDown).Perform();
-
-                    if (button.Displayed)
-                    {
-                        break;
-                    }
-                }*/
-                await Task.Delay(10);
+                await Task.Delay(100);
                 actions.Click().Perform();
-                /*                var location = button.Location;
-                                MouseMover.MoveMouseSmoothly(100, 100, location.X, location.Y, 50, 20, 30);
-                                MouseMover.ClickMouse();
-                                button.Click();*/
             }
             catch (NoSuchDriverException ex)
             {
                 _logger.LogInformation($"Button '{button.Text}' not found. Error: {ex.Message}");
-
             }
-
         }
 
         private async Task<bool> ErrorCaptchaAsync(IWebDriver driver, string buttonText)
         {
             int retryCount = 0;
-            var prefix = $"{CodeMapping.GetSiteIdentifierByKey(buttonText)} {TruncateText(buttonText, 30)}.";
+            var prefix = $"{CodeMapping.GetSiteIdentifierByKey(buttonText)} {_bezKolejkiService.TruncateText(buttonText, 30)}.";
             const int maxRetryCount = 2;
 
             var captchaElement = driver.FindElements(By.ClassName("sweet-modal-warning")).FirstOrDefault();
@@ -354,13 +327,12 @@ namespace BezKolejki_bot.Services
                 return false;
             }
 
-
             while (retryCount < maxRetryCount && captchaElement != null)
             {
                 retryCount++;
                 _logger.LogInformation($"{prefix} Captcha detected on attempt {retryCount} Refreshing the page");
 
-                await Task.Delay(2000);
+                //await Task.Delay(2000);
                 driver.Navigate().Refresh();
                 await Task.Delay(4000);
 
@@ -372,12 +344,11 @@ namespace BezKolejki_bot.Services
                     {
                         _logger.LogInformation($"{prefix}. Re-clicking button after captcha refresh.");
                         ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
-                        await Task.Delay(500);
+                        await Task.Delay(2500);
                         await clickWizardIcon(driver);
-                        await Task.Delay(500);
+                        await Task.Delay(4500);
                         await ClickButton(driver, button);
-                        //button.Click();
-                        await Task.Delay(2000);
+                        await Task.Delay(4000);
                     }
                 }
 
@@ -392,45 +363,6 @@ namespace BezKolejki_bot.Services
             driver.Navigate().Refresh();
             await Task.Delay(4000);
             return true;
-        }
-        private static string TruncateText(string text, int maxLength)
-        {
-            if (string.IsNullOrEmpty(text) || maxLength <= 0)
-                return string.Empty;
-
-            return text.Length > maxLength
-                ? text.Substring(0, maxLength - 3) + "..."
-                : text;
-        }
-
-        private async Task SaveDatesToDatabase(List<DateTime> dates, List<DateTime> previousDates, string code)
-        {
-            var buttonName = TruncateText(CodeMapping.GetKeyByCode(code),60);
-            if (dates != null && (dates.Any() || previousDates.Any()))
-            {
-                if (!string.IsNullOrEmpty(code))
-                {
-                    try
-                    {
-                        await _bezKolejkiService.SaveAsync(code, dates); 
-                        _logger.LogInformation($"Save date to {code}, {buttonName}");
-                        await _eventPublisherService.PublishDatesSavedAsync(code, dates, previousDates);
-                    }
-                    catch (Exception)
-                    {
-                        _logger.LogWarning($"Error save or published data {code}");
-                        throw;
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning($"No code found for button ({code} {buttonName})");
-                }
-            }
-            else
-            {
-                _logger.LogInformation($"No dates available to save ({code} {buttonName})");
-            }
         }
     }
 }

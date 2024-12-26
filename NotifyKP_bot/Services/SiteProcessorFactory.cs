@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BezKolejki_bot.Services
 {
-    public class SiteProcessorFactory
+    public class SiteProcessorFactory : ISiteProcessorFactory
     {
         private readonly IServiceProvider _serviceProvider;
 
@@ -16,7 +16,7 @@ namespace BezKolejki_bot.Services
         {
             if (url.Contains("bezkolejki"))
             {
-                return (ISiteProcessor)_serviceProvider.GetRequiredService<BrowserSiteProcessor>();
+                return _serviceProvider.GetRequiredService<BrowserSiteProcessor>();
             }
             else if (url.Contains("https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php"))
             {
@@ -25,5 +25,4 @@ namespace BezKolejki_bot.Services
             throw new NotSupportedException($"No processor found for URL: {url}");
         }
     }
-
 }

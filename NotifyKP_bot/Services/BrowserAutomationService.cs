@@ -4,15 +4,15 @@ using System.Collections.Concurrent;
 
 namespace BezKolejki_bot.Services
 {
-    public class BrowserAutomationService : ISiteProcessor
+    public class BrowserAutomationService : IBrowserAutomationService
     {
         private readonly ILogger<BrowserAutomationService> _logger;
-        private readonly SiteProcessorFactory _siteProcessorFactory;
+        private readonly ISiteProcessorFactory _siteProcessorFactory;
         private readonly ConcurrentDictionary<string, bool> _processingSite = new();
 
         public BrowserAutomationService(
             ILogger<BrowserAutomationService> logger,
-            SiteProcessorFactory siteProcessorFactory)
+            ISiteProcessorFactory siteProcessorFactory)
         {
             _logger = logger;
             _siteProcessorFactory = siteProcessorFactory;
@@ -22,11 +22,6 @@ namespace BezKolejki_bot.Services
         {
             var tasks = urls.Select(url => ProcessSiteAsync(url)).ToList();
             await Task.WhenAll(tasks);
-        }
-
-        public Task ProcessSiteAsync(string url, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
         }
 
         private async Task ProcessSiteAsync(string url)
@@ -41,7 +36,7 @@ namespace BezKolejki_bot.Services
             try
             {
                 var processor = _siteProcessorFactory.GetProcessor(url);
-                await processor.ProcessSiteAsync(url, CancellationToken.None);
+                await processor.ProcessSiteAsync(url);
             }
             catch (Exception ex)
             {
@@ -53,5 +48,4 @@ namespace BezKolejki_bot.Services
             }
         }
     }
-
 }
