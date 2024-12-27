@@ -1,7 +1,9 @@
-﻿namespace BezKolejki_bot.Interfaces
+﻿using BezKolejki_bot.Models;
+
+namespace BezKolejki_bot.Interfaces
 {
     public interface ISiteProcessorFactory
     {
-        ISiteProcessor GetProcessor(string url);
+        SiteProcessorResult GetProcessor(string url);
     }
 }

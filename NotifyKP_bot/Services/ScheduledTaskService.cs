@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using BezKolejki_bot.Interfaces;
+using Services.Interfaces;
 
 namespace BezKolejki_bot.Services
 {
@@ -9,15 +10,18 @@ namespace BezKolejki_bot.Services
     {
         private readonly ILogger<ScheduledTaskService> _logger;
         private readonly IBrowserAutomationService _browserAutomationService;
+        private readonly INotificationService _notificationService; // not delete
         private Timer _timer = null!;
         private readonly int _interval;
         public ScheduledTaskService(
             ILogger<ScheduledTaskService> logger, 
             IBrowserAutomationService browserAutomationService,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            INotificationService notificationService)
         {
             _logger = logger;
             _browserAutomationService = browserAutomationService;
+            _notificationService = notificationService;
 
             var bialaTaskScheduled = configuration["ScheduledTask:RunTaskBezKolejki"];
             if (!int.TryParse(bialaTaskScheduled, out _interval) || _interval <= 0)
@@ -49,7 +53,10 @@ namespace BezKolejki_bot.Services
                         "https://uw.bezkolejki.eu/ouw",
                         "https://bezkolejki.eu/puw_rzeszow2",
                         "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php",
-                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/pl"
+                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/pl", //Gdansk01
+                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/198/pl", //slupsk01
+                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/202/pl", //slupsk02
+                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/199/pl", //slupsk03
                     };
                 await _browserAutomationService.GetAvailableDateAsync(urls);
             }

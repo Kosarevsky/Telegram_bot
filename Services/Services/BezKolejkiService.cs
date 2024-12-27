@@ -101,5 +101,45 @@ namespace Services.Services
                 _logger.LogInformation($"No dates available to save ({code} {buttonName})");
             }
         }
+
+        public async Task<bool> ProcessingDate(bool dataSaved, List<string> data, string code)
+        {
+            var previousDates = new List<DateTime>();
+            try
+            {
+                previousDates = await GetLastExecutionDatesByCodeAsync(code);
+            }
+            catch (Exception)
+            {
+                _logger.LogWarning($"Error loading previousDates {code}");
+            }
+
+            var availableDates = new List<DateTime>();
+
+            foreach (var dateStr in data)
+            {
+                if (DateTime.TryParse(dateStr, out DateTime parsedDate))
+                {
+                    availableDates.Add(parsedDate);
+                }
+                else
+                {
+                    _logger.LogWarning($"Error parse string '{dateStr}' to DateTime");
+                }
+            }
+
+            if ((availableDates.Any() || previousDates.Any()) && !dataSaved)
+            {
+                await SaveDatesToDatabase(availableDates, previousDates, code);
+                dataSaved = true;
+
+            }
+            else if (!availableDates.Any())
+            {
+                _logger.LogInformation($"{code}. Not available date for save");
+            }
+
+            return dataSaved;
+        }
     }
 }

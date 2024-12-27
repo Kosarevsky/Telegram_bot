@@ -60,7 +60,6 @@ namespace Services.Services
             {
                 _logger.LogError(ex, "Error occurred while sending notifications");
             }
-
         }
 
         private async Task SendNotification(long telegramUserId, string message, string code)
@@ -82,7 +81,7 @@ namespace Services.Services
             var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {CodeMapping.GetKeyByCode(code)}\n";
 
             var availableDateMessage = dates.Any()
-                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}"
+                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}\n{CodeMapping.GetUrlByCode(code)}"
                 : "Нет дат.";
 
             if (dates.SequenceEqual(newDates))
@@ -92,7 +91,7 @@ namespace Services.Services
 
             if (newDates.Any())
             {
-                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n";
+                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n\n{CodeMapping.GetUrlByCode(code)}\n";
             }
 
             if (missingDates.Any())

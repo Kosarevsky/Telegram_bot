@@ -4,6 +4,7 @@
     {
         public string SiteIdentifier { get; set; }
         public string SiteName { get; set; }
+        public string Url { get; set; }
         public Dictionary<string, string> CodeMapping { get; set; }
     }
 
@@ -39,6 +40,7 @@
             {
                 SiteIdentifier = "Gdansk",
                 SiteName = "POMORSKI URZĄD WOJEWÓDZKI W GDAŃSKU",
+                Url = "https://kolejka.gdansk.uw.gov.pl/branch/5",
                 CodeMapping = new Dictionary<string, string>
                 {
                     { "Zezwolenie na pobyt (stały, czasowy), rezydenta, wymiana karty, dokumenty dla cudzoziemców", "/Gdansk01" }
@@ -48,6 +50,7 @@
             {
                 SiteIdentifier = "Biala",
                 SiteName = "Lubelski Urząd Wojewódzki - Delegatura w Białej Podlaskiej",
+                Url = "https://bezkolejki.eu/luwbb/",
                 CodeMapping = new Dictionary<string, string>
                 {
                     { "Karta Polaka - dorośli", "/Biala01" },
@@ -65,6 +68,7 @@
             {
                 SiteIdentifier = "Opole",
                 SiteName = "Rezerwacja kolejki w Opolskim Urzędzie Wojewódzkim",
+                Url = "https://uw.bezkolejki.eu/ouw",
                 CodeMapping = new Dictionary<string, string>
                 {
                     { "Wydawanie dokumentów (karty pobytu, zaproszenia)", "/Opole01" },
@@ -78,6 +82,7 @@
             {
                 SiteIdentifier = "Rzeszow",
                 SiteName = "Podkarpacki Urząd Wojewódzki w Rzeszowie",
+                Url = "https://bezkolejki.eu/puw_rzeszow2",
                 CodeMapping = new Dictionary<string, string>
                 {
                     { "1. Odbiór paszportów)", "/Rzeszow01" },
@@ -90,15 +95,39 @@
             {
                 SiteIdentifier = "Olsztyn",
                 SiteName = "Warmińsko-Mazurski Urząd Wojewódzki w Olsztynie",
+                Url = "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php",
                 CodeMapping = new Dictionary<string, string>
                 {
                     { "WMUW Karta Polaka", "/OlsztynKP" }
                 }
-            }
+            },
+            new SiteMapping
+            {
+                SiteIdentifier = "Slupsk",
+                SiteName = "Oddział Zamiejscowy w Słupsku Wydziału Spraw Obywatelskich i Cudzoziemców",
+                Url = "https://kolejka.gdansk.uw.gov.pl/branch/8",
+                CodeMapping = new Dictionary<string, string>
+                {
+                    { "Wniosek legalizujący pobyt lub złożenie odcisków palców", "/Slupsk01" },
+                    { "Zezwolenia na pracę i zaproszenia", "/Slupsk02" },
+                    { "Uzupełnienie dokumentów oraz pozostałe wnioski", "/Slupsk03" }
+                }
+            },
         };
 
         public static readonly Dictionary<string, SiteMapping> Sites = SiteList.ToDictionary(site => site.SiteIdentifier);
 
+        public static string GetUrlByCode(string code)
+        {
+            foreach (var site in Sites.Values)
+            {
+                if (site.CodeMapping.ContainsValue(code))
+                {
+                    return site.Url;
+                }
+            }
+            return string.Empty;
+        }
         public static string GetSiteIdentifierByCode(string code)
         {
             foreach (var site in Sites.Values)

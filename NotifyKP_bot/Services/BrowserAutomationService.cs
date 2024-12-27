@@ -35,8 +35,11 @@ namespace BezKolejki_bot.Services
 
             try
             {
-                var processor = _siteProcessorFactory.GetProcessor(url);
-                await processor.ProcessSiteAsync(url);
+                var result = _siteProcessorFactory.GetProcessor(url);
+
+                var processor = result.Processor;
+                var code = result.Code;
+                await processor.ProcessSiteAsync(url, code);
             }
             catch (Exception ex)
             {

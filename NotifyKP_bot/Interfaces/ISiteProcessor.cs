@@ -2,6 +2,6 @@
 {
     public interface ISiteProcessor
     {
-        Task ProcessSiteAsync(string url);
+        Task ProcessSiteAsync(string url, string code);
     }
 }

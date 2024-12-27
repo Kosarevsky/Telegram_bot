@@ -6,7 +6,6 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 
-
 namespace BezKolejki_bot.Services
 {
     public class OlsztynPostRequestProcessor : ISiteProcessor
@@ -21,12 +20,11 @@ namespace BezKolejki_bot.Services
             _httpClient = httpClientFactory;
             _bezKolejkiService = bezKolejkiService;
         }
-        public bool CanHandle(string url) => url.Contains("https://olsztyn.uw.gov.pl/wizytakartapolaka/"); 
 
-        public async Task ProcessSiteAsync(string url)
+        public async Task ProcessSiteAsync(string url, string code)
         {
             var client = _httpClient.CreateClient();
-            ConcurrentBag<DateTime> availableDates = new ConcurrentBag<DateTime>();
+            ConcurrentBag<string> dates = new ConcurrentBag<string>();
             bool dataSaved = false;
             try
             {
@@ -46,17 +44,6 @@ namespace BezKolejki_bot.Services
                     return;
                 }
 
-                var code = "/OlsztynKP";
-                var previousDates = new List<DateTime>();
-                try
-                {
-                    previousDates = await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(code);
-                }
-                catch (Exception)
-                {
-                    _logger.LogWarning($"Error loading previousDates {code}");
-                }
-
                 for (DateOnly date = minDate; date <= maxDate; date = date.AddDays(1))
                 {
                     if (!disabledDays.Contains(date))
@@ -64,20 +51,13 @@ namespace BezKolejki_bot.Services
                         var isAvailableDate = await GetAvailableTimeByDate(date, client);
                         if (isAvailableDate)
                         {
-                            availableDates.Add(date.ToDateTime(TimeOnly.MinValue));
+                            dates.Add(date.ToString());
                         }
                         await Task.Delay(500);
                     }
                 }
-                if ((availableDates.Any() || previousDates.Any()) && !dataSaved)
-                {
-                    await _bezKolejkiService.SaveDatesToDatabase(availableDates.ToList(), previousDates, code);
-                    dataSaved = true;
-                }
-                else if (!availableDates.Any())
-                {
-                    _logger.LogInformation($"{code}. Not available date for save");
-                }
+
+                dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
             }
             catch (HttpRequestException httpEx)
             {

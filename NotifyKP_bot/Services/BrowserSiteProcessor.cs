@@ -41,7 +41,7 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        public async Task ProcessSiteAsync(string url) 
+        public async Task ProcessSiteAsync(string url, string code) 
         {
             if (_processingSite.ContainsKey(url))
             {
@@ -171,40 +171,8 @@ namespace BezKolejki_bot.Services
                                         {
                                             _logger.LogWarning($"Error mapping code {data.operationId}");
                                         }
-                                        var previousDates = new List<DateTime>();
-                                        try
-                                        {
-                                            previousDates = await _bezKolejkiService.GetLastExecutionDatesByCodeAsync(code);
-                                        }
-                                        catch (Exception)
-                                        {
-                                            _logger.LogWarning($"Error loading previousDates {data.operationId}");
-                                        }
 
-                                        var availableDates = new List<DateTime>();
-
-                                        foreach (var dateStr in data.availableDays)
-                                        {
-                                            if (DateTime.TryParse(dateStr, out DateTime parsedDate))
-                                            {
-                                                availableDates.Add(parsedDate);
-                                            }
-                                            else
-                                            {
-                                                _logger.LogWarning($"Error parse string '{dateStr}' to DateTime");
-                                            }
-                                        }
-
-                                        if ((availableDates.Any() || previousDates.Any()) && !dataSaved)
-                                        {
-                                            await _bezKolejkiService.SaveDatesToDatabase(availableDates, previousDates, code);
-                                            dataSaved = true;
-
-                                        }
-                                        else if (!availableDates.Any())
-                                        {
-                                            _logger.LogInformation($"{buttonText}. Not available date for save");
-                                        }
+                                        dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, data.availableDays, code);
                                     }
                                 }
                                 catch (JsonSerializationException ex)

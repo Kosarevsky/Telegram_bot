@@ -190,6 +190,21 @@ namespace Services.Services
                         );
                         break;
 
+                    case "Slupsk":
+                        var questionKeyboardSlupsk = new InlineKeyboardMarkup(new[]
+                        {
+                            new [] { InlineKeyboardButton.WithCallbackData("Wniosek legalizujący pobyt lub złożenie odcisków palców", "/Slupsk01") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Zezwolenia na pracę i zaproszenia", "/Slupsk02") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Uzupełnienie dokumentów oraz pozostałe wnioski", "/Slupsk03") }
+                        });
+
+                        await SendTextMessage(
+                            callbackQuery.Message.Chat.Id,
+                            "Вы выбрали город Biala Podlaska. Пожалуйста, выберите операцию:",
+                            replyMarkup: questionKeyboardSlupsk
+                        );
+                        break;
+
                     case "/Biala01":
                     case "/Biala02":
                     case "/Biala03":
@@ -208,6 +223,9 @@ namespace Services.Services
                     case "/Rzeszow06":
                     case "/Gdansk01":
                     case "/OlsztynKP":
+                    case "/Slupsk01":
+                    case "/Slupsk02":
+                    case "/Slupsk03":
                         await ProcessSubscriptionSelection(callbackQuery);
                         break;
 
@@ -351,7 +369,8 @@ namespace Services.Services
                     new [] { InlineKeyboardButton.WithCallbackData("Biala Podlaska", "Biala Podlaska") },
                     new [] { InlineKeyboardButton.WithCallbackData("Opole", "Opole") },
                     new [] { InlineKeyboardButton.WithCallbackData("Rzeszow", "Rzeszow") },
-                    new [] { InlineKeyboardButton.WithCallbackData("Olsztyn", "Olsztyn") }
+                    new [] { InlineKeyboardButton.WithCallbackData("Olsztyn", "Olsztyn") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Slupsk", "Slupsk") },
             });
 
             await SendTextMessage(
