@@ -26,6 +26,15 @@ namespace BezKolejki_bot.Services
 
         public async Task ProcessSiteAsync(string url, string code)
         {
+            var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
+
+            if (countByActiveUsers <= 0)
+            {
+                _logger.LogInformation($"{code} count subscribers = 0. skipping....");
+                return;
+            }
+
+             _logger.LogInformation($"{code} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
             var client = _httpClient.CreateClient();
             bool dataSaved = false;
 
@@ -48,7 +57,7 @@ namespace BezKolejki_bot.Services
                         var dates = content.DATES;
                         if (dates != null && dates.Any())
                         {
-                           dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
+                            dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
                         }
                         else
                         {

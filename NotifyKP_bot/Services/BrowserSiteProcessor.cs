@@ -11,6 +11,7 @@ using System.Collections.Concurrent;
 using SeleniumUndetectedChromeDriver;
 using OpenQA.Selenium.Interactions;
 
+
 namespace BezKolejki_bot.Services
 {
     public class BrowserSiteProcessor : ISiteProcessor
@@ -96,7 +97,7 @@ namespace BezKolejki_bot.Services
                         await Task.Delay(1500);
 
                         var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                        await ExecuteBrowserAutomation(driver, wait, cancellationTokenSource.Token);
+                        await ExecuteBrowserAutomation(driver, wait, url, cancellationTokenSource.Token);
                     }
                 }
                 catch (OperationCanceledException)
@@ -114,7 +115,7 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        private async Task ExecuteBrowserAutomation(IWebDriver driver, WebDriverWait wait, CancellationToken cancellationToken)
+        private async Task ExecuteBrowserAutomation(IWebDriver driver, WebDriverWait wait, string url, CancellationToken cancellationToken)
         {
             try
             {
@@ -133,23 +134,19 @@ namespace BezKolejki_bot.Services
                     cancellationToken.ThrowIfCancellationRequested();
                     var buttonText = buttonTexts[index];
                     var buttonCode = CodeMapping.GetValueByKey(buttonText);
-                    var countUserBySubscribe = activeUsers
-                        .Where(user => user.Subscriptions.Any(sub => sub.SubscriptionCode == buttonCode))
-                        .Count();
-                    if (countUserBySubscribe <= 0)
+
+                    var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(buttonCode);
+
+                    if (countByActiveUsers <= 0)
                     {
                         _logger.LogInformation($"{buttonCode} count subscribers = 0. skipping....");
                         index++;
                         continue;
                     }
-                    else
-                    {
-                        _logger.LogInformation($"{buttonCode} count subscribers has {countUserBySubscribe}");
-                    }
 
+                    _logger.LogInformation($"{buttonCode} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
 
                     bool success = false;
-
                     bool dataSaved = false; 
 
                     EventHandler<NetworkResponseReceivedEventArgs> networkHandler = async (_, e) =>
@@ -232,6 +229,15 @@ namespace BezKolejki_bot.Services
                                 _logger.LogInformation($"{buttonText}.Stale element detected. Retrying for current button. {ex.Message}");
                                 await Task.Delay(1000);
                             }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning($"{buttonText}. Error event: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                            }
+                            finally
+                            {
+                                success = true;
+                                index++;
+                            }
                         }
                     }
                     catch (OperationCanceledException ex)
@@ -252,7 +258,14 @@ namespace BezKolejki_bot.Services
             catch (WebDriverTimeoutException)
             {
                 _logger.LogInformation("Error: element not found or timeout");
-                throw;
+            }
+            catch (WebDriverException ex) when (ex.Message.Contains("disconnected"))
+            {
+                _logger.LogWarning($"Browser disconnected unexpectedly: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Browser disconnected unexpectedly: {ex.Message}");
             }
             finally
             {
@@ -277,12 +290,12 @@ namespace BezKolejki_bot.Services
             {
                 var actions = new Actions(driver);
                 actions.MoveToElement(button);
-                //actions.SendKeys(Keys.Backspace).Perform(); 
+                actions.SendKeys(Keys.Backspace).Perform(); 
 
                 await Task.Delay(500);
                 actions.Click().Perform();
             }
-            catch (NoSuchDriverException ex)
+            catch (Exception ex)
             {
                 _logger.LogInformation($"Button '{button.Text}' not found. Error: {ex.Message}");
             }

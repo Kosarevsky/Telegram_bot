@@ -10,5 +10,6 @@ namespace Services.Interfaces
         Task SaveDatesToDatabase(List<DateTime> dates, List<DateTime> previousDates, string code);
         string TruncateText(string text, int maxLength);
         Task<bool> ProcessingDate(bool dataSaved, List<string> data, string code);
+        Task<int> GetCountActiveUsersByCode(string code);
     }
 }

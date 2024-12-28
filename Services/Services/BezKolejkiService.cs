@@ -141,5 +141,15 @@ namespace Services.Services
 
             return dataSaved;
         }
+
+        public async Task<int> GetCountActiveUsersByCode(string code)
+        {
+            var activeUsers = await GetActiveUsers();
+            var countByActiveUsers = activeUsers
+                .Where(u => u.Subscriptions.Any(s => s.SubscriptionCode == code))
+                .Count();
+
+            return countByActiveUsers;
+        }
     }
 }

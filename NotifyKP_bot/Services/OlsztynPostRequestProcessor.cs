@@ -23,6 +23,16 @@ namespace BezKolejki_bot.Services
 
         public async Task ProcessSiteAsync(string url, string code)
         {
+            var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
+
+            if (countByActiveUsers <= 0)
+            {
+                _logger.LogInformation($"{code} count subscribers = 0. skipping....");
+                return;
+            }
+
+            _logger.LogInformation($"{code} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
+
             var client = _httpClient.CreateClient();
             ConcurrentBag<string> dates = new ConcurrentBag<string>();
             bool dataSaved = false;
