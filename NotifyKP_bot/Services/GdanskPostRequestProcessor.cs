@@ -55,7 +55,7 @@ namespace BezKolejki_bot.Services
                     if (content != null)
                     {
                         var dates = content.DATES;
-                        if (dates != null && dates.Any())
+                        if (dates != null)
                         {
                             dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
                         }
