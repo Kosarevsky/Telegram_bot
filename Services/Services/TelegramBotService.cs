@@ -204,7 +204,30 @@ namespace Services.Services
                             replyMarkup: questionKeyboardSlupsk
                         );
                         break;
+                    case "Moskwa":
+                        var questionKeyboardMoskwa = new InlineKeyboardMarkup(new[]
+                        {
+                            new [] { InlineKeyboardButton.WithCallbackData("FEDERACJA ROSYJSKA. Moskwa. Karta Polaka", "/MoskwaKP") }
+                        });
 
+                        await SendTextMessage(
+                            callbackQuery.Message.Chat.Id,
+                            "Вы выбрали город Moskwa. Пожалуйста, выберите операцию:",
+                            replyMarkup: questionKeyboardMoskwa
+                        );
+                        break;
+                    case "Almaty":
+                        var questionKeyboardAlmaty = new InlineKeyboardMarkup(new[]
+                        {
+                            new [] { InlineKeyboardButton.WithCallbackData("KAZACHSTAN. Almaty. Karta Polaka", "/AlmatyKP") }
+                        });
+
+                        await SendTextMessage(
+                            callbackQuery.Message.Chat.Id,
+                            "Вы выбрали город Almaty. Пожалуйста, выберите операцию:",
+                            replyMarkup: questionKeyboardAlmaty
+                        );
+                        break;
                     case "/Biala01":
                     case "/Biala02":
                     case "/Biala03":
@@ -222,13 +245,16 @@ namespace Services.Services
                     case "/Rzeszow04":
                     case "/Rzeszow06":
                     case "/Gdansk01":
-                    case "/OlsztynKP":
+                    case "/OlsztynKP":                  
                     case "/Slupsk01":
                     case "/Slupsk02":
                     case "/Slupsk03":
+                    case "/MoskwaKP":
+                    case "/AlmatyKP":
                         await ProcessSubscriptionSelection(callbackQuery);
                         break;
 
+                    default:
                         await SendTextMessage(
                             callbackQuery.Message.Chat.Id,
                             $"Вы выбрали город: {selectedButton}"
@@ -371,6 +397,8 @@ namespace Services.Services
                     new [] { InlineKeyboardButton.WithCallbackData("Rzeszow", "Rzeszow") },
                     new [] { InlineKeyboardButton.WithCallbackData("Olsztyn", "Olsztyn") },
                     new [] { InlineKeyboardButton.WithCallbackData("Slupsk", "Slupsk") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Moskwa", "Moskwa") },
+                    new [] { InlineKeyboardButton.WithCallbackData("Almaty", "Almaty") },
             });
 
             await SendTextMessage(

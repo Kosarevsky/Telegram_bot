@@ -57,6 +57,8 @@ namespace BezKolejki_bot.Services
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/198/pl", //slupsk01
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/202/pl", //slupsk02
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/199/pl", //slupsk03
+                        "https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/terminy/1769/1", // Moskwa
+                        "https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/terminy/416/1" //KZ
                     };
                 await _browserAutomationService.GetAvailableDateAsync(urls);
             }

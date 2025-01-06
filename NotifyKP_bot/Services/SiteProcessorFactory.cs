@@ -39,6 +39,14 @@ namespace BezKolejki_bot.Services
             {
                 return new SiteProcessorResult(_serviceProvider.GetRequiredService<GdanskPostRequestProcessor>(), "/Slupsk03");
             }
+            else if (url.Contains("https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/terminy/1769/1"))
+            {
+                return new SiteProcessorResult(_serviceProvider.GetRequiredService<MoskwaKpPostRequestProcessor>(), "/MoskwaKP");
+            }
+            else if (url.Contains("https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/terminy/416/1"))
+            {
+                return new SiteProcessorResult(_serviceProvider.GetRequiredService<MoskwaKpPostRequestProcessor>(), "/AlmatyKP");
+            }
             throw new NotSupportedException($"No processor found for URL: {url}");
         }
     }

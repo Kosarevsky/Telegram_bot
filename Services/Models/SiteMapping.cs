@@ -101,6 +101,7 @@
                     { "WMUW Karta Polaka", "/OlsztynKP" }
                 }
             },
+
             new SiteMapping
             {
                 SiteIdentifier = "Slupsk",
@@ -111,6 +112,26 @@
                     { "Wniosek legalizujący pobyt lub złożenie odcisków palców", "/Slupsk01" },
                     { "Zezwolenia na pracę i zaproszenia", "/Slupsk02" },
                     { "Uzupełnienie dokumentów oraz pozostałe wnioski", "/Slupsk03" }
+                }
+            },
+            new SiteMapping
+            {
+                SiteIdentifier = "Moskwa",
+                SiteName = "FEDERACJA ROSYJSKA. Karta Polaka",
+                Url = "https://secure.e-konsulat.gov.pl/placowki/82/karta-polaka/wizyty/weryfikacja-obrazkowa",
+                CodeMapping = new Dictionary<string, string>
+                {
+                    { "FEDERACJA ROSYJSKA. Karta Polaka", "/MoskwaKP" }
+                }
+            },
+            new SiteMapping
+            {
+                SiteIdentifier = "Almaty",
+                SiteName = "KAZACHSTAN. Karta Polaka",
+                Url = "https://secure.e-konsulat.gov.pl/placowki/136/karta-polaka/wizyty/weryfikacja-obrazkowa",
+                CodeMapping = new Dictionary<string, string>
+                {
+                    { "KAZACHSTAN. Karta Polaka", "/AlmatyKP" }
                 }
             },
         };
