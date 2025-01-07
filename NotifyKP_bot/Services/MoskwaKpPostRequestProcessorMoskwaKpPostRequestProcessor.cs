@@ -41,6 +41,8 @@ namespace BezKolejki_bot.Services
             int attempts = 0;
             int maxRetries = 5;
             FirstPostRequestModel? captchaResponse = null;
+            SecondPostResponseModel? secondRequest = null;
+
 
             while (attempts < maxRetries)
             {
@@ -51,37 +53,15 @@ namespace BezKolejki_bot.Services
 
 
                     if (!string.IsNullOrEmpty(captchaResponse.kod) && captchaResponse.kod.Length == 4)
-                    {
-                        var secondRequest = await SecondPostRequest<SecondPostResponseModel>("https://api.e-konsulat.gov.pl/api/u-captcha/sprawdz", captchaResponse.id, captchaResponse.kod);
+                    { 
+                        var payloadSprawdz = new { kod = captchaResponse.kod, token = captchaResponse.id };
+                    
+                        secondRequest = await SendPostRequest<SecondPostResponseModel>("https://api.e-konsulat.gov.pl/api/u-captcha/sprawdz", payloadSprawdz);
+
                         if (secondRequest != null && secondRequest.ok)
                         {
                             _logger.LogInformation("Successfully processed captcha and completed second request.");
-                            var thirdResponce = await SecondPostRequest<ThirdPostResponseModel>(url, secondRequest.token, "");
-                            SaveImageToFile("c:\\1\\ok", captchaResponse.id, captchaResponse.image, captchaResponse.kod ?? string.Empty);
-
-
-                            var dates = new HashSet<string>();
-
-                            if (thirdResponce != null && thirdResponce.listaTerminow != null)
-                            {
-                                foreach (var item in thirdResponce.listaTerminow)
-                                {
-                                    dates.Add(item.data);
-                                    _logger.LogWarning($"{code }{thirdResponce.token} {item.idTerminu} {item.data} {item.godzina} {item}");
-                                }
-                            }
-
-                            if (dates != null)
-                            {
-                                dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
-                            }
-                            else
-                            {
-                                _logger.LogInformation($"{code} No available dates. Message:");
-                            }
-
-
-                            return;
+                            break; 
                         }
                         else
                         {
@@ -102,17 +82,42 @@ namespace BezKolejki_bot.Services
                 }
             }
 
-            _logger.LogError("Failed to process captcha after maximum retries.");
+
+            if (secondRequest == null || !secondRequest.ok)
+            {
+                _logger.LogError("Failed to process captcha after maximum retries.");
+                return;
+            }
+
+
+            var payloadThird = new { token = secondRequest.token };
+            var thirdResponse = await SendPostRequest<ThirdPostResponseModel>(url, payloadThird);
+            SaveImageToFile("c:\\1\\ok", captchaResponse.id, captchaResponse.image, captchaResponse.kod ?? string.Empty);
+
+
+            var dates = new HashSet<string>();
+
+            if (thirdResponse != null && thirdResponse.listaTerminow != null)
+            {
+                foreach (var item in thirdResponse.listaTerminow)
+                {
+                    dates.Add(item.data);
+                    _logger.LogWarning($"{code}{thirdResponse.token} {item.idTerminu} {item.data} {item.godzina} {item}");
+                }
+            }
+
+            await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
+
         }
 
         public async Task<FirstPostRequestModel?> FirstPostRequest(string url)
         {
             var payLoad = new { imageWidth = 400, imageHeight = 200 };
             string recognizedText = string.Empty;
-            var _client = _httpClient.CreateClient();
+            var client = _httpClient.CreateClient();
             try
             {
-                var response = await _client.PostAsJsonAsync("https://api.e-konsulat.gov.pl/api/u-captcha/generuj", payLoad);
+                var response = await client.PostAsJsonAsync("https://api.e-konsulat.gov.pl/api/u-captcha/generuj", payLoad);
                 await Task.Delay(1000);
 
                 if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.NotFound)
@@ -161,13 +166,11 @@ namespace BezKolejki_bot.Services
             File.WriteAllBytes(fileName, imageBytes);
         }
 
-        private async Task<T?> SecondPostRequest<T>(string url, string token, string recognizedText) where T : class 
+        private async Task<T?> SendPostRequest<T>(string url, object payload) where T : class 
         {
             var client = _httpClient.CreateClient();
             try
             {
-                var payload = new { kod = recognizedText, token = token };
-
                 var response = await client.PostAsJsonAsync(url, payload);
                 return await ProcessHttpResponse<T>(response);
             }
