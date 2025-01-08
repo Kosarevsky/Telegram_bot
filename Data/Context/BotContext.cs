@@ -11,6 +11,7 @@ namespace Data.Context
         public DbSet<Execution> Execution { get; set; }
         public DbSet<AvailableDate> AvailableDates { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<Client> Client { get; set; }
         public DbSet<UserSubscription> UserSubscriptions { get; set; }
 
         public async Task<DateTime> GetCurrentDateTimeFromServerAsync()

@@ -1,5 +1,4 @@
-﻿
-namespace BezKolejki_bot.Interfaces
+﻿namespace BezKolejki_bot.Interfaces
 {
     public interface IScheduledTaskService
     {

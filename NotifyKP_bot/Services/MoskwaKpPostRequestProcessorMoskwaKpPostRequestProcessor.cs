@@ -99,7 +99,16 @@ namespace BezKolejki_bot.Services
 
             if (thirdResponse != null && thirdResponse.listaTerminow != null)
             {
-                foreach (var item in thirdResponse.listaTerminow)
+                var payloadRezerwacje = new
+                {
+                    id_terminu = 8682997,
+                    id_wersji_jezykowej = 1,
+                    token = thirdResponse.token,
+                    liczba_osob = 1
+                };
+
+
+            foreach (var item in thirdResponse.listaTerminow)
                 {
                     dates.Add(item.data);
                     _logger.LogWarning($"{code}{thirdResponse.token} {item.idTerminu} {item.data} {item.godzina} {item}");

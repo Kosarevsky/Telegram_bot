@@ -21,6 +21,9 @@ namespace Data.Repositories
         public IUserSubscriptionRepository UserSubscription =>
             new UserSubscriptionRepository(CreateContext());
 
+        public IClientRepository Client =>
+            new ClientRepository(CreateContext());
+
         private BotContext CreateContext()
         {
             return _contextFactory.CreateDbContext(Array.Empty<string>());
@@ -37,6 +40,5 @@ namespace Data.Repositories
             using var context = CreateContext();
             await context.SaveChangesAsync();
         }
-
     }
 }

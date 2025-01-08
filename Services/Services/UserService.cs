@@ -8,61 +8,31 @@ using System.Linq.Expressions;
 
 namespace Services.Services
 {
-    public class UserService : IUserService
+    public class ClientService : IClientService
     {
         private readonly IUnitOfWork _database;
         private readonly IMapper _mapper;
 
-        public UserService(IUnitOfWork database)
+        public ClientService(IUnitOfWork database)
         {
             _database = database;
 
             var config = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<Data.Entities.User, UserModel>()
-                    .ForMember(dest => dest.Subscriptions, opt => opt.MapFrom(src => src.Subscriptions))
-                    .ReverseMap();
-
-                cfg.CreateMap<UserSubscription, UserSubscriptionModel>()
+                cfg.CreateMap<Client, ClientModel>()
                     .ReverseMap();
             });
 
             _mapper = config.CreateMapper();
         }
 
-        public async Task<List<UserModel>> GetAllAsync(Expression<Func<Data.Entities.User, bool>>? predicate = null)
+        public async Task<List<ClientModel>> GetAllAsync(Expression<Func<Client, bool>>? predicate = null)
         {
-            var users = predicate == null
-                ? await _database.User.GetAllAsync().ToListAsync() 
-                : await _database.User.GetAllAsync(predicate).ToListAsync();
+            var clients = predicate == null
+                ? await _database.Client.GetAll().ToListAsync() 
+                : await _database.Client.GetAll(predicate).ToListAsync();
 
-            return _mapper.Map<List<UserModel>>(users);
-        }
-
-        public async Task SaveSubscription(long telegramId, string code)
-        {
-           await _database.User.SaveSubscriptionAsync(telegramId, code);
-        }
-
-        public async Task DeleteSubscription(long telegramId, string code)
-        {
-            await _database.User.DeleteSubscriptionAsync(telegramId, code);
-        }
-
-        public async Task UpdateLastNotificationDateAsync(UserModel tgUser)
-        {
-            var userEntity = _mapper.Map<Data.Entities.User>(tgUser);
-            await _database.User.UpdateLastNotificationDateAsync(userEntity);
-        }
-
-        public async Task DeactivateUserAsync(long chatId)
-        {
-            var user = _database.User.GetAllAsync(u => u.TelegramUserId == chatId).FirstOrDefault();
-            if (user != null) { 
-            user.IsActive = false;
-                _database.User.DeactivateUserAsync(user);
-            }
-
+            return _mapper.Map<List<ClientModel>>(clients);
         }
     }
 }
