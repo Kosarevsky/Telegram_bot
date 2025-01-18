@@ -2,10 +2,10 @@
 {
     public class SiteMapping
     {
-        public string SiteIdentifier { get; set; }
-        public string SiteName { get; set; }
-        public string Url { get; set; }
-        public Dictionary<string, string> CodeMapping { get; set; }
+        public string SiteIdentifier { get; set; } = string.Empty;
+        public string SiteName { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public Dictionary<string, string> CodeMapping { get; set; } = new Dictionary<string, string>();
     }
 
     public static class CodeMapping

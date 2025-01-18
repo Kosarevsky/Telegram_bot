@@ -48,7 +48,7 @@ namespace Services.Services
                 {
                     if (stoppingToken.IsCancellationRequested) break;
 
-                    if (user.DateLastSubscription > DeactivationThresholdDate)
+                    if (user.DateLastSubscription > DeactivationThresholdDate )
                     {
                         var differentDate = (DeactivationThresholdDate - user.DateLastSubscription).Duration();
                         var warningMessage = $"Мы заметили, что вы давно не проявляли активности. \nЕсли вы хотите продолжать получать уведомления, ответьте /start \nИначе рассылка будет прекращена через {(differentDate.Days>0 ? differentDate.Days: string.Empty)} {differentDate.Hours} часов";

@@ -8,6 +8,11 @@ using System.Net.Http.Json;
 using Tesseract;
 using SixLabors.ImageSharp.Processing;
 using Newtonsoft.Json;
+using Microsoft.ML.Data;
+using Microsoft.ML;
+
+using static BezKolejki_bot.Services.MoskwaKpPostRequestProcessor;
+using Microsoft.VisualBasic;
 
 namespace BezKolejki_bot.Services
 {
@@ -27,6 +32,26 @@ namespace BezKolejki_bot.Services
 
         public async Task ProcessSiteAsync(string url, string code)
         {
+            var fileName = "list.csv";
+            var folderPath = "c:\\1\\ok";
+            var fullPatch = Path.Combine(folderPath, fileName);
+
+            if (!File.Exists(fullPatch))
+            {
+                var fileList = GenerateCSVFile(folderPath);
+                
+                using (StreamWriter writer = new StreamWriter(fullPatch, false))
+                {
+                    foreach (var item in fileList)
+                    {
+                        var line = $"{item.ImagePath},{item.Label}\n";
+                        await writer.WriteAsync(line);
+                    }
+                }
+
+                LearningML(fullPatch, folderPath);
+            }
+
             var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
 
             if (countByActiveUsers <= 0)
@@ -53,15 +78,15 @@ namespace BezKolejki_bot.Services
 
 
                     if (!string.IsNullOrEmpty(captchaResponse.kod) && captchaResponse.kod.Length == 4)
-                    { 
+                    {
                         var payloadSprawdz = new { kod = captchaResponse.kod, token = captchaResponse.id };
-                    
+
                         secondRequest = await SendPostRequest<SecondPostResponseModel>("https://api.e-konsulat.gov.pl/api/u-captcha/sprawdz", payloadSprawdz);
 
                         if (secondRequest != null && secondRequest.ok)
                         {
                             _logger.LogInformation("Successfully processed captcha and completed second request.");
-                            break; 
+                            break;
                         }
                         else
                         {
@@ -78,7 +103,7 @@ namespace BezKolejki_bot.Services
                 if (attempts < maxRetries)
                 {
                     _logger.LogInformation($"Retrying captcha process... Attempt {attempts + 1} of {maxRetries}");
-                    await Task.Delay(500);  
+                    await Task.Delay(500);
                 }
             }
 
@@ -92,7 +117,7 @@ namespace BezKolejki_bot.Services
 
             var payloadThird = new { token = secondRequest.token };
             var thirdResponse = await SendPostRequest<ThirdPostResponseModel>(url, payloadThird);
-            SaveImageToFile("c:\\1\\ok", captchaResponse.id, captchaResponse.image, captchaResponse.kod ?? string.Empty);
+            SaveImageToFile("c:\\1\\ok", captchaResponse?.id ?? string.Empty, captchaResponse?.image ?? string.Empty, captchaResponse?.kod ?? string.Empty);
 
 
             var dates = new HashSet<string>();
@@ -108,7 +133,7 @@ namespace BezKolejki_bot.Services
                 };
 
 
-            foreach (var item in thirdResponse.listaTerminow)
+                foreach (var item in thirdResponse.listaTerminow)
                 {
                     dates.Add(item.data);
                     _logger.LogWarning($"{code}{thirdResponse.token} {item.idTerminu} {item.data} {item.godzina} {item}");
@@ -117,6 +142,34 @@ namespace BezKolejki_bot.Services
 
             await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
 
+        }
+
+        private void LearningML(string fullPatch, string directoryPatch)
+        {
+            var mlContext = new MLContext();
+
+            // Загружаем данные из CSV
+            var data = mlContext.Data.LoadFromTextFile<CaptchaData>(
+                path: fullPatch,
+                separatorChar: ',',
+                hasHeader: true
+            );
+            // Data transformation pipeline
+            var pipeline = mlContext.Transforms.Conversion.MapValueToKey("Label")
+                .Append(mlContext.Transforms.LoadImages(outputColumnName: "Image", imageFolder: directoryPatch, inputColumnName: "ImagePath"))
+                .Append(mlContext.Transforms.ResizeImages(outputColumnName: "Image", imageWidth: 28, imageHeight: 28))
+                .Append(mlContext.Transforms.ExtractPixels(outputColumnName: "Image"))
+                .Append(mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy(labelColumnName: "Label", featureColumnName: "Image"))
+                .Append(mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
+
+
+            // Train model
+            var model = pipeline.Fit(data);
+
+            // Save model
+            mlContext.Model.Save(model, data.Schema, Path.Combine(directoryPatch, "CaptchaModel.zip"));
+
+            Console.WriteLine("Model training complete.");
         }
 
         public async Task<FirstPostRequestModel?> FirstPostRequest(string url)
@@ -170,12 +223,12 @@ namespace BezKolejki_bot.Services
         private void SaveImageToFile(string path, string id, string image, string recognizedText)
         {
             byte[] imageBytes = Convert.FromBase64String(image);
-            string fileName = Path.Combine(path, $"{id} {recognizedText}.png");
+            string fileName = Path.Combine(path, $"{id}_{recognizedText}.png");
             Directory.CreateDirectory(path);
             File.WriteAllBytes(fileName, imageBytes);
         }
 
-        private async Task<T?> SendPostRequest<T>(string url, object payload) where T : class 
+        private async Task<T?> SendPostRequest<T>(string url, object payload) where T : class
         {
             var client = _httpClient.CreateClient();
             try
@@ -255,30 +308,65 @@ namespace BezKolejki_bot.Services
             return image;
         }
 
+        private IEnumerable<CaptchaData> GenerateCSVFile(string folderPath)
+        {
+            var data = new List<CaptchaData>
+            {
+                new CaptchaData { ImagePath = "ImagePath",  Label = "CaptchaText" }
+            };
+
+            var files = Directory.GetFiles(folderPath, "*.png");
+            foreach (var file in files)
+            {
+                var fileName = Path.GetFileNameWithoutExtension(file);
+                var parts = fileName.Split('_');
+                if (parts.Length == 2) { 
+                    var captcha = parts[1];
+                    data.Add(new CaptchaData
+                    {
+                        ImagePath = file,
+                        Label = captcha,
+                    });
+                }
+            }
+            return data;
+        }
         public class FirstPostRequestModel
         {
-            public string id { get; set; }
+            public string id { get; set; } = string.Empty;
             public int iloscZnakow { get; set; }
-            public string image { get; set; }
+            public string image { get; set; } = string.Empty;
             public string? kod { get; set; }
         }
         private class SecondPostResponseModel
         {
             public bool ok { get; set; }
-            public string token { get; set; }
+            public string token { get; set; } = string.Empty;
         }
         
         private class ThirdPostResponseModel
         {
             public List<ListaTerminow>? listaTerminow { get; set; }
-            public string token { get; set; }
+            public string token { get; set; } = string.Empty;
         }
 
         private class ListaTerminow
         {
-            public int idTerminu { get; set; }
-            public string data { get; set; }
-            public string godzina { get; set; }
+            public int idTerminu { get; set; } = 0;
+            public string data { get; set; } = string.Empty;
+            public string godzina { get; set; } = string.Empty; 
+        }
+        public class CaptchaData
+        {
+            [LoadColumn(0)]
+            public string ImagePath { get; set; } = string.Empty;
+            [LoadColumn(1)]
+            public string Label { get; set; } = string.Empty;
+        }
+        public class CaptchaPrediction
+        {
+            [ColumnName("PredictedLabel")]
+            public string PredictedLabel { get; set; } = string.Empty;
         }
     }
 }

@@ -78,7 +78,7 @@ namespace Services.Services
 
         private string GenerateMessage(List<DateTime> dates, List<DateTime> newDates, List<DateTime> missingDates, string code)
         {
-            var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {_bezKolejkiService.TruncateText(CodeMapping.GetKeyByCode(code),20)}\n";
+            var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {_bezKolejkiService.TruncateText(CodeMapping.GetKeyByCode(code),30)}\n";
 
             var availableDateMessage = dates.Any()
                 ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}\n{CodeMapping.GetUrlByCode(code)}"

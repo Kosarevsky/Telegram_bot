@@ -57,7 +57,7 @@ namespace Services.Services
 
         public async Task DeactivateUserAsync(long chatId)
         {
-            var user = _database.User.GetAllAsync(u => u.TelegramUserId == chatId).FirstOrDefault();
+            var user = await _database.User.GetAllAsync(u => u.TelegramUserId == chatId).FirstOrDefaultAsync();
             if (user != null) { 
             user.IsActive = false;
                 _database.User.DeactivateUserAsync(user);

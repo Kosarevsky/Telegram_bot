@@ -6,11 +6,11 @@ namespace Services
     {
         private HttpClient _client;
         readonly string _address;
-        public string UserAgent { get; set; }
+        public string UserAgent { get; set; } = string.Empty;
         public Dictionary<string, string> Headers { get; set; }
-        public string Cookie { get; set; }
-        public string Accept { get; set; }
-        public string Host { get; set; }
+        public string Cookie { get; set; } = string.Empty;
+        public string Accept { get; set; } = string.Empty;
+        public string Host { get; set; } = string.Empty;
         public GetRequest(string address)
         {
             _address = address;
