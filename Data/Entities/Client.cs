@@ -16,19 +16,20 @@ namespace Data.Entities
         public string Code { get; set; } = string.Empty;
         public string Surname { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public DateOnly DateOfBirth { get; set; }
-        public string Citizenship { get; set; } = string.Empty;
-        public bool Sex {  get; set; }
-        public string PassportNumber { get; set; } = string.Empty;
-        public string PassportIdNumber { get; set; } = string.Empty;
-        public string Street { get; set; } = string.Empty;
-        public string HouseNumber { get; set; } = string.Empty;
+        public DateOnly? DateOfBirth { get; set; }
+        public string? Citizenship { get; set; } = string.Empty;
+        public bool? Sex {  get; set; }
+        public string? PassportNumber { get; set; } = string.Empty;
+        public string? PassportIdNumber { get; set; } = string.Empty;
+        public string? Street { get; set; } = string.Empty;
+        public string? HouseNumber { get; set; } = string.Empty;
         public string? ApartmentNumber { get; set; }
-        public string ZipCode { get; set; } = string.Empty;
-        public string City { get; set; } = string.Empty;
-        public string PhoneNumberPrefix { get; set; } = string.Empty;
-        public string PhoneNumber { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
+        public string? ZipCode { get; set; } = string.Empty;
+        public string? City { get; set; } = string.Empty;
+        public string? PhoneNumberPrefix { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; } = string.Empty;
+        public string? Email { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public string? Result {  get; set; } = string.Empty;
     }
 }

@@ -7,5 +7,6 @@ namespace Services.Interfaces
     public interface IClientService
     {
         Task<List<ClientModel>> GetAllAsync(Expression<Func<Client, bool>>? predicate = null);
+        Task SaveAsync(ClientModel client);
     }
 }

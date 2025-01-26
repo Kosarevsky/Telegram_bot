@@ -22,13 +22,7 @@ namespace Services.Services
         private readonly ConcurrentDictionary<long , int> _userMessageCounts = new ();
         private readonly ConcurrentDictionary<long , DateTime> _usersBan = new ();
         private readonly Timer _resetTimer;
-        public TelegramBotService(
-            ITelegramBotClient botClient,
-            ILogger<TelegramBotService> logger,
-            IConfiguration configuration,
-            IUserService userService,
-            IEventPublisherService eventPublisher,
-            IBezKolejkiService bezKolejkiService)
+        public TelegramBotService(ITelegramBotClient botClient,ILogger<TelegramBotService> logger,IConfiguration configuration, IUserService userService, IEventPublisherService eventPublisher, IBezKolejkiService bezKolejkiService)
         {
             _botClient = botClient;
             _logger = logger;
@@ -71,7 +65,7 @@ namespace Services.Services
                                 {
                                     await HandleCallbackQuery(update.CallbackQuery);
                                 }
-                                offset = update?.Id ?? 0 + 1;
+                                offset = (update?.Id ?? 0) + 1;
                             }
                             catch (Exception ex)
                             {
@@ -199,7 +193,7 @@ namespace Services.Services
 
                         await SendTextMessage(
                             userId,
-                            "Вы выбрали город Biala Podlaska. Пожалуйста, выберите операцию:",
+                            "Вы выбрали город Slupsk. Пожалуйста, выберите операцию:",
                             replyMarkup: questionKeyboardSlupsk
                         );
                         break;

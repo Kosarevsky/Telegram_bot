@@ -5,8 +5,10 @@ namespace Data.Interfaces
 {
     public interface IClientRepository
     {
-        IQueryable<Client> GetAll();
+        IQueryable<Client> GetAllAsync();
 
-        IQueryable<Client> GetAll(Expression<Func<Client, bool>> predicate);
+        IQueryable<Client> GetAllAsync(Expression<Func<Client, bool>> predicate);
+
+        Task SaveAsync(Client client);
     }
 }

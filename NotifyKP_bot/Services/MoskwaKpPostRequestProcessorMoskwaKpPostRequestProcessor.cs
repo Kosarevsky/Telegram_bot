@@ -11,9 +11,6 @@ using Newtonsoft.Json;
 using Microsoft.ML.Data;
 using Microsoft.ML;
 
-using static BezKolejki_bot.Services.MoskwaKpPostRequestProcessor;
-using Microsoft.VisualBasic;
-
 namespace BezKolejki_bot.Services
 {
     public class MoskwaKpPostRequestProcessor : ISiteProcessor
@@ -32,6 +29,15 @@ namespace BezKolejki_bot.Services
 
         public async Task ProcessSiteAsync(string url, string code)
         {
+            var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
+
+            if (countByActiveUsers <= 0)
+            {
+                _logger.LogInformation($"{code} count subscribers = 0. skipping....");
+                return;
+            }
+                _logger.LogInformation($"{code} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
+
             var fileName = "list.csv";
             var folderPath = "c:\\1\\ok";
             var fullPatch = Path.Combine(folderPath, fileName);
@@ -52,15 +58,6 @@ namespace BezKolejki_bot.Services
                 LearningML(fullPatch, folderPath);
             }
 
-            var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
-
-            if (countByActiveUsers <= 0)
-            {
-                _logger.LogInformation($"{code} count subscribers = 0. skipping....");
-                return;
-            }
-
-            _logger.LogInformation($"{code} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
             bool dataSaved = false;
 
             int attempts = 0;
@@ -300,7 +297,7 @@ namespace BezKolejki_bot.Services
             {
                 x.Grayscale();
                 x.Contrast(1.5f);
-                x.AdaptiveThreshold();  // Адаптивная бинаризация для более точного порога
+                x.AdaptiveThreshold();  
                 x.BinaryThreshold(0.4f);
                 x.GaussianBlur(0.8f);
                 x.Crop(new Rectangle(80, 40, image.Width - 80, image.Height - 40));

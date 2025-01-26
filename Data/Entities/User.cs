@@ -12,6 +12,9 @@ namespace Data.Entities
 
         [Required]
         public long TelegramUserId { get; set; }
+        
+        [Required]
+        public DateTime DateRegistration {  get; set; } 
 
         [Required]
         public DateTime DateLastSubscription { get; set; }

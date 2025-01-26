@@ -8,7 +8,6 @@ using Services.Interfaces;
 using Services.Models;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
-using SeleniumUndetectedChromeDriver;
 using OpenQA.Selenium.Interactions;
 
 
@@ -55,26 +54,15 @@ namespace BezKolejki_bot.Services
 
             try
             {
-
                 var options = new ChromeOptions();
-                //options.AddArgument("--disable-blink-features=AutomationControlled");
-                //options.AddExcludedArgument("enable-automation");
                 options.AddArgument("--no-sandbox");
-                //options.AddArgument("start-maximized");
-                //options.AddArgument("disable-infobars");
-                //options.AddArgument("--disable-dev-shm-usage");
-                //options.AddArgument("--enable-unsafe-swiftshader");
-                //options.AddArgument("--window-size=1920x1080");
+                options.AddArgument("--disable-dev-shm-usage");
+                options.AddArgument("--disable-blink-features=AutomationControlled");
+                var driverService = ChromeDriverService.CreateDefaultService();
+                driverService.HideCommandPromptWindow = true; 
 
-                //options.AddAdditionalOption("useAutomationExtension", false);
-                //options.AddArgument("accept-language='ru-RU,ru;q=0.9'");
-                //options.AddArgument("referer='https://bezkolejki.eu/luwbb/'");
-                //options.AddArgument("sec-ch-ua='Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"'");
-                //options.AddArgument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
-                //options.AddArgument("--window-size=1,1");
-                //options.AddArgument("user-agent='Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'");
-                options.AddArgument("--incognito");
-
+                options.AddArgument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
+                options.AddAdditionalOption("useAutomationExtension", false);
                 if (!_browserIsVisible) {
                     options.AddArgument("--headless");
                 }
@@ -89,9 +77,7 @@ namespace BezKolejki_bot.Services
 
                 try
                 {
-                    using (var driver = UndetectedChromeDriver.Create(options,
-                            driverExecutablePath:
-                                await new ChromeDriverInstaller().Auto()))
+                    using (IWebDriver driver = new ChromeDriver(driverService, options))
                     {
                         driver.Navigate().GoToUrl(url);
                         await Task.Delay(1500);

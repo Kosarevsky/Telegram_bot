@@ -7,6 +7,8 @@
         public long TelegramUserId { get; set; }
 
         public DateTime DateLastSubscription { get; set; }
+        public DateTime DateRegistration { get; set; }
+
         public Boolean IsActive { get; set; }
 
         public List<UserSubscriptionModel> Subscriptions { get; set; } = new List<UserSubscriptionModel>();
