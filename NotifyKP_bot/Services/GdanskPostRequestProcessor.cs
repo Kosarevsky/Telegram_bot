@@ -6,7 +6,6 @@ using Services.Interfaces;
 using Services.Models;
 using System.Net.Http.Json;
 using System.Text;
-using static System.Net.Mime.MediaTypeNames;
 
 
 namespace BezKolejki_bot.Services
@@ -67,12 +66,12 @@ namespace BezKolejki_bot.Services
                         {
                             var (SedcoBranchID, SedcoServiceID, BranchID, ServiceID) = GetServiceIdsByCode(code);
                             var clientIndex = 0;
-                            //foreach (var date in dates)
-                            var date = "16/04/2025";
+                            foreach (var date in dates)
+                            //var date = "17/04/2025";
                             {
                                 var parsedDate = DateTime.ParseExact(date, "dd/MM/yyyy", null);
                                 string reformattedDate = parsedDate.ToString("yyyy-MM-dd");
-                                var availableTime = await GetTimeAsync(reformattedDate);
+                                var availableTime = await GetTimeAsync(reformattedDate, BranchID, ServiceID);
                                 if (availableTime != null)
                                 {
                                     foreach (var time in availableTime.TIMES)
@@ -108,9 +107,9 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        private object CreateJsonPayload(int sedcoBranchID, int sedcoServiceID, int branchID, int serviceID, string date, string time, ClientModel client)
+        private GdanskAppointmentRequestWebModel CreateJsonPayload(int sedcoBranchID, int sedcoServiceID, int branchID, int serviceID, string date, string time, ClientModel client)
         {
-            return new
+            var obj = new GdanskAppointmentRequestWebModel
             {
                 SedcoBranchID = sedcoBranchID,
                 SedcoServiceID = sedcoServiceID,
@@ -118,19 +117,20 @@ namespace BezKolejki_bot.Services
                 ServiceID = serviceID,
                 AppointmentDay = date,
                 AppointmentTime = time,
-                CustomerInfo = new
+                CustomerInfo = new GdanskAppointmentCustomerInfoRequestWebModel
                 {
-                    AdditionalInfo = new
+                    AdditionalInfo = new GdanskAppointmentAdditionalInfoRequest
                     {
                         CustomerName_L2 = $"{client.Name} {client.Surname}",
-                        Email = client.Email?.ToLower(),
-                        checkbox = true
+                        Email = client?.Email?.ToLower(),
                     }
-                },
-                LanguagePrefix = "pl",
-                SelectedLanguage = "pl",
-                SegmentIdentification = "internet"
+                }
             };
+
+
+            _telegramBotService.SendTextMessage(5993130676, $"Отправил POST на регу. \n{client?.Email} \n{JsonConvert.SerializeObject(obj)}");
+
+            return obj;
         }
 
         private static (int SedcoBranchID, int SedcoServiceID, int BranchID, int ServiceID) GetServiceIdsByCode(string code)
@@ -143,17 +143,17 @@ namespace BezKolejki_bot.Services
             };
         }
 
-        private async Task<GdanskTakeAppointmentWebModel?> ProcessRegistration(object jsonPayload, ClientModel client)
+        private async Task<GdanskTakeAppointmentWebModel?> ProcessRegistration(GdanskAppointmentRequestWebModel jsonPayload, ClientModel client)
         {
             var result = await SendPostRequest<GdanskTakeAppointmentWebModel>(jsonPayload);
+
+            var messText = result != null
+                ? JsonConvert.SerializeObject(result, _jsonSerializerSettings)
+                : "result is null";
+            await _telegramBotService.SendTextMessage(5993130676, $"2Отправил POST на регу. \n{client.Email} \n{messText} \n{JsonConvert.SerializeObject(jsonPayload)}");
+
             if (result != null)
             {
-                var messText = result != null
-                    ? JsonConvert.SerializeObject(result, _jsonSerializerSettings)
-                : "result is null";
-
-                await _telegramBotService.SendTextMessage(5993130676, $"Отправил POST на регу. \n{client.Email} \n{messText} \n{jsonPayload}");
-
                 if (result?.RESPONSE == null)
                 {
                     await _telegramBotService.SendTextMessage(5993130676, $"result.RESPONSE=null");
@@ -184,7 +184,7 @@ namespace BezKolejki_bot.Services
 
                 var text = $"{result?.RESPONSE?.TakeAppointmentResult.Code}" +
                     $"{result?.RESPONSE?.TakeAppointmentResult.Description}";
-                await _telegramBotService.SendTextMessage(5993130676, $"{client.Email}\n{text}\n jsonPayload {jsonPayload}");
+                await _telegramBotService.SendTextMessage(5993130676, $"description {client.Email}\n{text}");
 
 
                 if (result?.RESPONSE.TakeAppointmentResult.Code == 0 && result.RESPONSE.TakeAppointmentResult.Description == "Success")
@@ -211,11 +211,15 @@ namespace BezKolejki_bot.Services
             return result;
         }
 
-        private async Task<T?> SendPostRequest<T>(object jsonPayload) where T: class
+        private async Task<T?> SendPostRequest<T>(GdanskAppointmentRequestWebModel jsonPayload) where T: class
         {
+
+            await _telegramBotService.SendTextMessage(5993130676, $"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonPayload)}");
+
             var client = _httpClient.CreateClient();
             var formData = new MultipartFormDataContent();
             var jsonString = JsonConvert.SerializeObject(jsonPayload, _jsonSerializerSettings);
+            await _telegramBotService.SendTextMessage(5993130676, $"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonString)}");
 
             //formData.Add(new StringContent(jsonString), "JSONForm");
             formData.Add(new StringContent(jsonString, Encoding.UTF8, "application/json"), "JSONForm");
@@ -225,10 +229,10 @@ namespace BezKolejki_bot.Services
             return await ProcessHttpResponse<T>(response);
         }
 
-        public async Task<GdanskTimeWebModel?> GetTimeAsync(string date)
+        public async Task<GdanskTimeWebModel?> GetTimeAsync(string date, int BranchID, int ServiceID)
         {
             var client = _httpClient.CreateClient();
-            var url = $"https://kolejka.gdansk.uw.gov.pl/admin/API/time/8/50/{date}";
+            var url = $"https://kolejka.gdansk.uw.gov.pl/admin/API/time/{BranchID}/{ServiceID}/{date}";
             var response = await SendGetRequest<GdanskTimeWebModel>(url);
             return response;
         }

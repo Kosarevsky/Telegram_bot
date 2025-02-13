@@ -62,4 +62,35 @@ namespace BezKolejki_bot.Models
     {
         public string Name { get; set; } = string.Empty;
     }
+
+
+    public class GdanskAppointmentRequestWebModel
+    {
+        public int SedcoBranchID { get; set; }
+        public int SedcoServiceID { get; set; }
+        public int BranchID { get; set; }
+        public int ServiceID { get; set; }
+        public string AppointmentDay { get; set; } = string.Empty;
+        public string AppointmentTime { get; set; } = string.Empty;
+
+        public GdanskAppointmentCustomerInfoRequestWebModel CustomerInfo { get; set; }
+
+        public string LanguagePrefix { get; set; } = "pl";
+        public string SelectedLanguage { get; set; } = "pl";
+        public string SegmentIdentification { get; set; } = "internet";
+
+    }
+
+    public class GdanskAppointmentCustomerInfoRequestWebModel
+    {
+        public GdanskAppointmentAdditionalInfoRequest AdditionalInfo { get; set; }
+
+    }
+    public class GdanskAppointmentAdditionalInfoRequest
+    {
+        public string CustomerName_L2 { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        [JsonProperty("checkbox")]
+        public bool Checkbox { get; set; } = true;
+    }
 }

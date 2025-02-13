@@ -75,23 +75,24 @@ namespace Services.Services
             }
         }
 
-
         private string GenerateMessage(List<DateTime> dates, List<DateTime> newDates, List<DateTime> missingDates, string code)
         {
-            var message = $"{CodeMapping.GetSiteIdentifierByCode(code)}. {_bezKolejkiService.TruncateText(CodeMapping.GetKeyByCode(code),30)}\n";
+            var siteIdentifier = CodeMapping.GetSiteIdentifierByCode(code);
+            var truncatedText = _bezKolejkiService.TruncateText(CodeMapping.GetKeyByCode(code), 30);
+            var url = CodeMapping.GetUrlByCode(code);
 
-            var availableDateMessage = dates.Any()
-                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}\n{CodeMapping.GetUrlByCode(code)}"
-                : "Нет дат.";
+            var message = $"{siteIdentifier}. {truncatedText}\n";
 
             if (dates.SequenceEqual(newDates))
             {
-                return message + availableDateMessage;
+                return message + (dates.Any()
+                    ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}\n{url}"
+                    : "Нет дат.");
             }
 
             if (newDates.Any())
             {
-                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n\n{CodeMapping.GetUrlByCode(code)}\n";
+                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n";
             }
 
             if (missingDates.Any())
@@ -99,7 +100,10 @@ namespace Services.Services
                 message += $"Разобрали дату: {string.Join(", ", missingDates.Select(d => d.ToShortDateString()))}\n";
             }
 
-            message += availableDateMessage;
+            message += dates.Any()
+                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}\n{url}"
+                : "Нет дат.";
+
             return message;
         }
     }

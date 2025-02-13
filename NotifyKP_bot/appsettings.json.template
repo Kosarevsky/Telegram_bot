@@ -1,0 +1,21 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=your_server;Database=your_database;User Id=your_user;Password=your_password;"
+  },
+  "Telegram": {
+    "BotToken": "YOUR_TELEGRAM_BOT_TOKEN",
+    "ChatId": "YOUR_CHAT_ID"
+  },
+  "ScheduledTask": {
+    "RunTaskBezKolejki": 60,
+    "TimeOutBrowser": 120,
+    "BrowserIsVisible": false
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Warning",
+      "Microsoft.EntityFrameworkCore.Infrastructure": "Warning"
+    }
+  }
+}
