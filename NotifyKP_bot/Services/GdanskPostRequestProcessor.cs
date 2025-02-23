@@ -79,9 +79,12 @@ namespace BezKolejki_bot.Services
                                         if (clientIndex < clients.Count)
                                         {
                                             var client = clients[clientIndex];
-                                            var jsonPayload = CreateJsonPayload(SedcoBranchID, SedcoServiceID, BranchID, ServiceID, reformattedDate, time.time, client);
 
-                                            var result = await ProcessRegistration(jsonPayload, client);
+                                            var res = DateTime.Compare(parsedDate, new DateTime(2025, 03, 01));
+                                            if (res > 0) { 
+                                                var jsonPayload = CreateJsonPayload(SedcoBranchID, SedcoServiceID, BranchID, ServiceID, reformattedDate, time.time, client);
+                                                var result = await ProcessRegistration(jsonPayload, client);
+                                            }
 
                                             clientIndex++;
                                         }
@@ -109,26 +112,30 @@ namespace BezKolejki_bot.Services
 
         private GdanskAppointmentRequestWebModel CreateJsonPayload(int sedcoBranchID, int sedcoServiceID, int branchID, int serviceID, string date, string time, ClientModel client)
         {
-            var obj = new GdanskAppointmentRequestWebModel
+            var obj = new GdanskAppointmentRequestWebModel();
+            if (client != null && sedcoBranchID > 0 && sedcoServiceID > 0 & branchID > 0 & serviceID > 0 )
             {
-                SedcoBranchID = sedcoBranchID,
-                SedcoServiceID = sedcoServiceID,
-                BranchID = branchID,
-                ServiceID = serviceID,
-                AppointmentDay = date,
-                AppointmentTime = time,
-                CustomerInfo = new GdanskAppointmentCustomerInfoRequestWebModel
+                obj = new GdanskAppointmentRequestWebModel
                 {
-                    AdditionalInfo = new GdanskAppointmentAdditionalInfoRequest
+
+                    SedcoBranchID = sedcoBranchID,
+                    SedcoServiceID = sedcoServiceID,
+                    BranchID = branchID,
+                    ServiceID = serviceID,
+                    AppointmentDay = date,
+                    AppointmentTime = time,
+                    CustomerInfo = new GdanskAppointmentCustomerInfoRequestWebModel
                     {
-                        CustomerName_L2 = $"{client.Name} {client.Surname}",
-                        Email = client?.Email?.ToLower(),
+                        AdditionalInfo = new GdanskAppointmentAdditionalInfoRequest
+                        {
+                            CustomerName_L2 = $"{client.Name} {client.Surname}",
+                            Email = client?.Email?.ToLower(),
+                        }
                     }
-                }
+                };
+                _telegramBotService.SendTextMessage(5993130676, $"создал POST на регу. \n{client?.Email} \n{JsonConvert.SerializeObject(obj)}");
             };
 
-
-            _telegramBotService.SendTextMessage(5993130676, $"Отправил POST на регу. \n{client?.Email} \n{JsonConvert.SerializeObject(obj)}");
 
             return obj;
         }

@@ -46,7 +46,7 @@ namespace Data.Repositories
                         {
                             TelegramUserId = telegramId,
                             DateLastSubscription = date,
-                            DateRegistration = await _context.GetCurrentDateTimeFromServerAsync(),
+                            DateRegistration = DateTime.Now,
                             IsActive = true,
                             Subscriptions = new List<UserSubscription>()
                         };
