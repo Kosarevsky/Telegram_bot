@@ -87,16 +87,16 @@ namespace BezKolejki_bot.Services
                 captchaResponse = await FirstPostRequest(url);
                 if (captchaResponse != null)
                 {
-                    SaveImageToFile("c:\\1", captchaResponse.id, captchaResponse.image, captchaResponse.kod ?? string.Empty);
+                    SaveImageToFile("c:\\1", captchaResponse.Id, captchaResponse.Image, captchaResponse.Kod ?? string.Empty);
 
 
-                    if (!string.IsNullOrEmpty(captchaResponse.kod) && captchaResponse.kod.Length == 4)
+                    if (!string.IsNullOrEmpty(captchaResponse.Kod) && captchaResponse.Kod.Length == 4)
                     {
-                        var payloadSprawdz = new { kod = captchaResponse.kod, token = captchaResponse.id };
+                        var payloadSprawdz = new { kod = captchaResponse.Kod, token = captchaResponse.Id };
 
                         secondRequest = await SendPostRequest<SecondPostResponseModel>("https://api.e-konsulat.gov.pl/api/u-captcha/sprawdz", payloadSprawdz);
 
-                        if (secondRequest.Data != null && secondRequest.Data.ok)
+                        if (secondRequest.Data != null && secondRequest.Data.Ok)
                         {
                             _logger.LogInformation("Successfully processed captcha and completed second request.");
                             break;
@@ -120,69 +120,69 @@ namespace BezKolejki_bot.Services
                 }
             }
 
-            if (secondRequest?.Data == null || !secondRequest.Data.ok)
+            if (secondRequest?.Data == null || !secondRequest.Data.Ok)
             {
                 _logger.LogError("Failed to process captcha after maximum retries.");
                 return;
             }
 
             await Task.Delay(300);
-            var payloadThird = new { token = secondRequest.Data.token };
+            var payloadThird = new { token = secondRequest.Data.Token };
             var thirdResponse = await SendPostRequest<ThirdPostResponseModel>(url, payloadThird);
-            SaveImageToFile("c:\\1\\ok", captchaResponse?.id ?? string.Empty, captchaResponse?.image ?? string.Empty, captchaResponse?.kod ?? string.Empty);
+            SaveImageToFile("c:\\1\\ok", captchaResponse?.Id ?? string.Empty, captchaResponse?.Image ?? string.Empty, captchaResponse?.Kod ?? string.Empty);
 
 
             var dates = new HashSet<string>();
 
-            if (thirdResponse.IsSuccess && thirdResponse?.Data?.listaTerminow != null)
+            if (thirdResponse.IsSuccess && thirdResponse?.Data?.ListaTerminow != null)
             {
-                foreach (var item in thirdResponse.Data.listaTerminow)
+                foreach (var item in thirdResponse.Data.ListaTerminow)
                 {
-                    dates.Add(item.data);
-                    _logger.LogWarning($"{code}{thirdResponse.Data.token} {item.idTerminu} {item.data} {item.godzina} ");
+                    dates.Add(item.Data);
+                    _logger.LogWarning($"{code}{thirdResponse.Data.Token} {item.IdTerminu} {item.Data} {item.Godzina} ");
                 }
             }
 
             await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
 
             //------4
-            if (thirdResponse != null && thirdResponse.IsSuccess && thirdResponse?.Data?.listaTerminow != null)
+            if (thirdResponse != null && thirdResponse.IsSuccess && thirdResponse?.Data?.ListaTerminow != null)
             {
                 var clients = await _clientService.GetAllAsync(u => u.Code == code && u.IsActive && !u.IsRegistered);
                 if (clients != null && clients.Count > 0)
                 {
                     var clientIndex = 0;
-                    foreach (var item in thirdResponse.Data.listaTerminow)
+                    foreach (var item in thirdResponse.Data.ListaTerminow)
                     {
-                        var fourthResult = await ProcessingRezerwacje(thirdResponse.Data.token, item);
+                        var fourthResult = await ProcessingRezerwacje(thirdResponse.Data.Token, item);
                         if (fourthResult == null) {
                             _logger.LogWarning($"{code}. ProcessingRezerwacje return null.");
                             continue;
                         }
 
-                        var fiveResult =  await ProcessRegistration(fourthResult.bilet, clients[clientIndex]);
+                        var fiveResult =  await ProcessRegistration(fourthResult.Bilet, clients[clientIndex]);
                         if (fiveResult == null)
                         {
                             _logger.LogWarning($"{code}. ProcessRegistration return null. Skip client");
                             continue;
                         }
 
-                        if (fiveResult.wynik == "zapisano")
+                        if (fiveResult.Wynik == "zapisano")
                         {
-                            var pdfPath = Path.Combine("c:\\1\\M", $"{fiveResult.guid}.pdf");
+                            var pdfPath = Path.Combine("c:\\1\\M", $"{fiveResult.Guid}.pdf");
 
-                            await DownloadPdfAsync(fiveResult.guid, pdfPath);
-                            var message = $"wynik: {fiveResult?.wynik}" +
-                                $"guid : {fiveResult.guid}" +
-                                $"kod: {fiveResult.kod}" +
-                                $"numerFormularza {fiveResult.numerFormularza}";
+                            await DownloadPdfAsync(fiveResult.Guid, pdfPath);
+                            var message = $"wynik: {fiveResult?.Wynik}" +
+                                $"guid : {fiveResult.Guid}" +
+                                $"kod: {fiveResult.Kod}" +
+                                $"numerFormularza {fiveResult.NumerFormularza}";
 
 
                             await _telegramBotService.SendTextMessage(5993130676, $"description {clients[clientIndex].Email}\n{message}");
                         }
                         else
                         {
-                            var message = $"{code}. {clients[clientIndex].Email} \nReg is fail: {fiveResult.wynik}";
+                            var message = $"{code}. {clients[clientIndex].Email} \nReg is fail: {fiveResult.Wynik}";
                             await _telegramBotService.SendTextMessage(5993130676, message);
                             _logger.LogWarning(message);
                         }
@@ -203,23 +203,18 @@ namespace BezKolejki_bot.Services
         {
             try
             {
-                // Формируем URL для скачивания PDF
                 var pdfUrl = $"https://api.e-konsulat.gov.pl/api/formularze/pdf-karta-polaka/{guid}";
 
-                // Отправляем GET запрос
                 var response = await _httpClient.GetAsync(pdfUrl);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // Читаем JSON-ответ
                     var jsonResponse = await response.Content.ReadFromJsonAsync<PdfResponse>();
 
-                    if (jsonResponse != null && !string.IsNullOrEmpty(jsonResponse.pdf))
+                    if (jsonResponse != null && !string.IsNullOrEmpty(jsonResponse.Pdf))
                     {
-                        // Декодируем Base64 в массив байтов
-                        byte[] pdfBytes = Convert.FromBase64String(jsonResponse.pdf);
+                        byte[] pdfBytes = Convert.FromBase64String(jsonResponse.Pdf);
 
-                        // Сохраняем массив байтов в файл
                         await File.WriteAllBytesAsync(outputPath, pdfBytes);
 
                         _logger.LogInformation($"PDF успешно сохранен по пути: {outputPath}");
@@ -248,23 +243,14 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        // Модель для десериализации JSON-ответа
-        public class PdfResponse
-        {
-            public string numerFormularza { get; set; }
-            public string pdf { get; set; } // Base64-строка с PDF
-            public bool haslo { get; set; }
-        }
-
-
         private async Task<FourthRezerwacjePostResponseModel?> ProcessingRezerwacje(string token, ListaTerminow termin)
         {
             if (termin != null)
             {
                 var payloadFourth = new FourthRezerwacjePostPayloadModel
                 {
-                    id_terminu = termin.idTerminu,
-                    token = token
+                    IdTerminu = termin.IdTerminu,
+                    Token = token
                 };
                 var fourthResponse = await SendPostRequest<FourthRezerwacjePostResponseModel>
                     ("https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/rezerwacje", payloadFourth);
@@ -283,24 +269,24 @@ namespace BezKolejki_bot.Services
         {
             var payloadDaneKartaPolaka = new FivePostDaneKartaPolakaPayLoadModel
             {
-                bilet = bilet,
-                daneFormularza = new FivePostDaneKartaPolakaDaneFormularzaPayLoadModel 
+                Bilet = bilet,
+                DaneFormularza = new FivePostDaneKartaPolakaDaneFormularzaPayLoadModel 
                 {
-                    imie1 = client.Surname.ToUpper(),
-                    nazwisko1 = client.Surname.ToUpper(),
-                    dataUrodzenia = client.DateOfBirth?.ToString("yyyy-MM-dd") ?? "",
-                    obywatelstwo = client.Citizenship.ToUpper(),
-                    obywatelstwoICAO = "RUS",
-                    plec = (bool)client.Sex ? "M" : "K",
-                    numerPaszportu = client.PassportNumber,
-                    numerIdentyfikacyjny = client.PassportIdNumber,
-                    ulica = client.Street,
-                    nrDomu = client.HouseNumber,
-                    kodPocztowy = client.ZipCode,
-                    miejscowosc = client.City,
-                    telefon = client.PhoneNumberPrefix+client.PhoneNumber,
-                    email = client.Email.ToLower(),
-                    opisSprawy = "Karta Polaka"
+                    Imie1 = client.Surname.ToUpper(),
+                    Nazwisko1 = client.Surname.ToUpper(),
+                    DataUrodzenia = client.DateOfBirth?.ToString("yyyy-MM-dd") ?? "",
+                    Obywatelstwo = client.Citizenship.ToUpper(),
+                    ObywatelstwoICAO = "RUS",
+                    Plec = (bool)client.Sex ? "M" : "K",
+                    NumerPaszportu = client?.PassportNumber ?? "number",
+                    NumerIdentyfikacyjny = client?.PassportIdNumber ?? "0",
+                    Ulica = client?.Street ?? "street",
+                    NrDomu = client?.HouseNumber ?? "-",
+                    KodPocztowy = client?.ZipCode ?? "0",
+                    Miejscowosc = client?.City ?? "sity",
+                    Telefon = client?.PhoneNumberPrefix ?? "+" + client?.PhoneNumber ?? "00000000",
+                    Email = client?.Email.ToLower() ?? "-",
+                    OpisSprawy = "Karta Polaka"
                 }
             };
             var fiveResponse = await SendPostRequest<FivePostDaneKartaPolakaDaneFormularzaResponseModel>
@@ -368,13 +354,13 @@ namespace BezKolejki_bot.Services
                     var content = await response.Content.ReadFromJsonAsync<FirstPostRequestModel>();
                     if (content != null)
                     {
-                        byte[] imageBytes = Convert.FromBase64String(content.image);
+                        byte[] imageBytes = Convert.FromBase64String(content.Image);
                         using (var ms = new MemoryStream(imageBytes))
                         {
                             Image<Rgba32> preprocessedImage = PreprocessImage(ms);
                             recognizedText = RecognizeCaptcha(preprocessedImage, @"d:\Work\dev\Telegram_bot\tessdata");
                             _logger.LogInformation("Распознанный текст: " + recognizedText);
-                            content.kod = recognizedText;
+                            content.Kod = recognizedText;
                             return content;
                         }
                     }
