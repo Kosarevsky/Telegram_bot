@@ -13,6 +13,7 @@ using Microsoft.ML;
 using Services.Models;
 using BezKolejki_bot.Models;
 
+
 namespace BezKolejki_bot.Services
 {
     public class MoskwaKpPostRequestProcessor : ISiteProcessor
@@ -155,39 +156,56 @@ namespace BezKolejki_bot.Services
                     foreach (var item in thirdResponse.Data.ListaTerminow)
                     {
                         var fourthResult = await ProcessingRezerwacje(thirdResponse.Data.Token, item);
+                        if (fourthResult?.ErrorMessage != null)
+                        {
+                            await _telegramBotService.SendTextMessage(5993130676, $"{code} fourthResult {clients[clientIndex].Email}\n{fourthResult?.ErrorMessage}");
+                            continue;
+                        }
+
                         if (fourthResult == null) {
                             _logger.LogWarning($"{code}. ProcessingRezerwacje return null.");
                             continue;
                         }
 
-                        var fiveResult =  await ProcessRegistration(fourthResult.Bilet, clients[clientIndex]);
+                        var fiveResult =  await ProcessRegistration(fourthResult.Data.Bilet, clients[clientIndex]);
                         if (fiveResult == null)
                         {
                             _logger.LogWarning($"{code}. ProcessRegistration return null. Skip client");
                             continue;
                         }
 
-                        if (fiveResult.Wynik == "zapisano")
+                        if (fiveResult.ErrorMessage != null)
                         {
-                            var pdfPath = Path.Combine("c:\\1\\M", $"{fiveResult.Guid}.pdf");
+                            await _telegramBotService.SendTextMessage(5993130676, $"{code} fiveResult {clients[clientIndex].Email}\n{fiveResult.ErrorMessage}");
+                        }
 
-                            await DownloadPdfAsync(fiveResult.Guid, pdfPath);
-                            var message = $"wynik: {fiveResult?.Wynik}" +
-                                $"guid : {fiveResult.Guid}" +
-                                $"kod: {fiveResult.Kod}" +
-                                $"numerFormularza {fiveResult.NumerFormularza}";
+                        if (fiveResult != null && fiveResult.Data != null && fiveResult.Data.Wynik == "zapisano")
+                        {
+                            var pdfPath = Path.Combine("c:\\1\\M", $"{fiveResult.Data.Guid}.pdf");
+
+                            await DownloadPdfAsync(fiveResult.Data.Guid, pdfPath);
+                            var message = $"{code} "+
+                                $"wynik: {fiveResult?.Data.Wynik}\n" +
+                                $"guid : {fiveResult?.Data.Guid}\n" +
+                                $"kod: {fiveResult?.Data.Kod}\n" +
+                            $"numerFormularza {fiveResult?.Data.NumerFormularza}";
 
 
-                            await _telegramBotService.SendTextMessage(5993130676, $"description {clients[clientIndex].Email}\n{message}");
+                            clients[clientIndex].Result = message;
+                            clients[clientIndex].DateRegistration = DateTime.Now;
+                            clients[clientIndex].IsRegistered = true;
+                            clients[clientIndex].IsActive = false;
+                            await _telegramBotService.SendTextMessage(5993130676, $"{clients[clientIndex].Email}\n{message}");
+                            await _clientService.SaveAsync(clients[clientIndex]);
                         }
                         else
                         {
-                            var message = $"{code}. {clients[clientIndex].Email} \nReg is fail: {fiveResult.Wynik}";
+                            var message = $"{code}. {clients[clientIndex].Email} \nReg is fail: {fiveResult?.Data?.Wynik}";
                             await _telegramBotService.SendTextMessage(5993130676, message);
                             _logger.LogWarning(message);
                         }
                         clientIndex ++;
-                        if (clientIndex > clients.Count)
+                        if (clientIndex >= clients.Count)
                         {
                             break;
                         }
@@ -243,7 +261,7 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        private async Task<FourthRezerwacjePostResponseModel?> ProcessingRezerwacje(string token, ListaTerminow termin)
+        private async Task<ApiResult<FourthRezerwacjePostResponseModel>?> ProcessingRezerwacje(string token, ListaTerminow termin)
         {
             if (termin != null)
             {
@@ -252,6 +270,7 @@ namespace BezKolejki_bot.Services
                     IdTerminu = termin.IdTerminu,
                     Token = token
                 };
+
                 var fourthResponse = await SendPostRequest<FourthRezerwacjePostResponseModel>
                     ("https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/rezerwacje", payloadFourth);
                 if (!fourthResponse.IsSuccess)
@@ -259,13 +278,13 @@ namespace BezKolejki_bot.Services
                     _logger.LogWarning($"ProcessingRezerwacje вернул ошибку: {fourthResponse.ErrorMessage}");
 
                 }
-                return fourthResponse.Data;
+                return fourthResponse;
             }
 
             return null;
         }
 
-        private async Task<FivePostDaneKartaPolakaDaneFormularzaResponseModel> ProcessRegistration(string bilet, ClientModel client)
+        private async Task<ApiResult<FivePostDaneKartaPolakaDaneFormularzaResponseModel>> ProcessRegistration(string bilet, ClientModel client)
         {
             var payloadDaneKartaPolaka = new FivePostDaneKartaPolakaPayLoadModel
             {
@@ -284,7 +303,7 @@ namespace BezKolejki_bot.Services
                     NrDomu = client?.HouseNumber ?? "-",
                     KodPocztowy = client?.ZipCode ?? "0",
                     Miejscowosc = client?.City ?? "sity",
-                    Telefon = client?.PhoneNumberPrefix ?? "+" + client?.PhoneNumber ?? "00000000",
+                    Telefon = (client?.PhoneNumberPrefix ?? "+") + (client?.PhoneNumber ?? "00000000"),
                     Email = client?.Email.ToLower() ?? "-",
                     OpisSprawy = "Karta Polaka"
                 }
@@ -296,40 +315,38 @@ namespace BezKolejki_bot.Services
                 _logger.LogWarning($"ProcessRegistration return error: {fiveResponse.ErrorMessage}");
             }
 
-            return fiveResponse.Data;
+            return fiveResponse;
         }
         private async Task LearningML(string fullPatch, string directoryPatch)
         {
-            var mlContext = new MLContext();
+            //var mlContext = new MLContext();
 
-            var data = mlContext.Data.LoadFromTextFile<CaptchaData>(
+            var data = _mlContext.Data.LoadFromTextFile<CaptchaData>(
                 path: fullPatch,
                 separatorChar: ',',
                 hasHeader: true
             );
 
 
-            // Проверяем, что данные загружены корректно
-            var enumerableData = mlContext.Data.CreateEnumerable<CaptchaData>(data, reuseRowObject: false).Take(5);
+            var enumerableData = _mlContext.Data.CreateEnumerable<CaptchaData>(data, reuseRowObject: false).Take(5);
             foreach (var item in enumerableData)
             {
                 Console.WriteLine($"Label: {item.Label}, Features: {string.Join(", ", item.ImagePath)}");
             }
 
-            // Data transformation pipeline
-            var pipeline = mlContext.Transforms.Conversion.MapValueToKey("Label")
-                .Append(mlContext.Transforms.LoadImages(outputColumnName: "Image", imageFolder: directoryPatch, inputColumnName: "ImagePath"))
-                .Append(mlContext.Transforms.ResizeImages(outputColumnName: "Image", imageWidth: 200, imageHeight: 100))
-                .Append(mlContext.Transforms.ExtractPixels(outputColumnName: "Image"))
-                .Append(mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy(labelColumnName: "Label", featureColumnName: "Image"))
-                .Append(mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
+            var pipeline = _mlContext.Transforms.Conversion.MapValueToKey("Label")
+                .Append(_mlContext.Transforms.LoadImages(outputColumnName: "Image", imageFolder: directoryPatch, inputColumnName: "ImagePath"))
+                .Append(_mlContext.Transforms.ResizeImages(outputColumnName: "Image", imageWidth: 200, imageHeight: 100))
+                .Append(_mlContext.Transforms.ExtractPixels(outputColumnName: "Image"))
+                .Append(_mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy(labelColumnName: "Label", featureColumnName: "Image"))
+                .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
 
 
             // Train model
             var model = pipeline.Fit(data);
 
             string modelPath = Path.Combine(directoryPatch, "CaptchaModel.zip");
-            await Task.Run(() => mlContext.Model.Save(model, data.Schema, modelPath));
+            await Task.Run(() => _mlContext.Model.Save(model, data.Schema, modelPath));
 
             Console.WriteLine("Model training complete.");
         }
@@ -393,7 +410,9 @@ namespace BezKolejki_bot.Services
         {
             try
             {
-                var response = await _httpClient.PostAsJsonAsync(url, payload);
+                var json = JsonConvert.SerializeObject(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(url, content);
                 return await ProcessHttpResponse<T>(response);
             }
             catch (HttpRequestException ex)
@@ -532,36 +551,28 @@ namespace BezKolejki_bot.Services
         {
             try
             {
-                // Ленивая загрузка модели
                 if (!_isModelLoaded)
                 {
                     LoadModel();
                 }
 
-                // Преобразование изображения в формат, подходящий для модели
                 var preprocessedImage = PreprocessImageML(image);
 
-                // Создание временного файла для изображения
                 string tempImagePath = Path.GetTempFileName();
                 preprocessedImage.Save(tempImagePath);
 
-                // Создание входных данных для модели
                 var input = new CaptchaData { ImagePath = tempImagePath };
                 var inputData = _mlContext.Data.LoadFromEnumerable(new[] { input });
 
-                // Применение модели для предсказания
                 var predictions = _model.Transform(inputData);
                 var predictedLabels = _mlContext.Data.CreateEnumerable<CaptchaPrediction>(predictions, reuseRowObject: false);
 
-                // Удаление временного файла
                 File.Delete(tempImagePath);
 
-                // Возврат распознанного текста
                 return predictedLabels.FirstOrDefault()?.PredictedLabel ?? string.Empty;
             }
             catch (Exception ex)
             {
-                // Логирование ошибки
                 Console.WriteLine($"Error recognizing captcha: {ex.Message}");
                 return string.Empty;
             }

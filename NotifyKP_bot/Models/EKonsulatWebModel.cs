@@ -68,7 +68,7 @@ namespace BezKolejki_bot.Models
         public string Bilet { get; set; } = string.Empty;
 
         [JsonProperty("listaBiletow")]
-        public List<FourthRezerwacjeListaBiletowPostResponseModel> ListaBiletow { get; set; }
+        public List<FourthRezerwacjeListaBiletowPostResponseModel> ListaBiletow { get; set; } = new List<FourthRezerwacjeListaBiletowPostResponseModel>();
     }
 
     public class FourthRezerwacjeListaBiletowPostResponseModel
@@ -92,7 +92,7 @@ namespace BezKolejki_bot.Models
         public int IdWersjiJezykowej { get; set; } = 1;
 
         [JsonProperty("daneFormularza")]
-        public FivePostDaneKartaPolakaDaneFormularzaPayLoadModel DaneFormularza { get; set; }
+        public FivePostDaneKartaPolakaDaneFormularzaPayLoadModel DaneFormularza { get; set; } = new FivePostDaneKartaPolakaDaneFormularzaPayLoadModel();
     }
 
     public class FivePostDaneKartaPolakaDaneFormularzaPayLoadModel

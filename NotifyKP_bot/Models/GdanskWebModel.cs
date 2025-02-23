@@ -24,14 +24,14 @@ namespace BezKolejki_bot.Models
 
     public class GdanskTakeAppointmentWebModel
     {
-        public GdanskTakeAppointmentResponse RESPONSE { get; set; }
+        public GdanskTakeAppointmentResponse RESPONSE { get; set; } = new GdanskTakeAppointmentResponse();
     }
 
     public class GdanskTakeAppointmentResponse
     {
-        public TakeAppointmentResult TakeAppointmentResult { get; set; }
+        public TakeAppointmentResult TakeAppointmentResult { get; set; } = new TakeAppointmentResult();
 
-        public AppointmentTicketInfo AppointmentTicketInfo { get; set; }
+        public AppointmentTicketInfo AppointmentTicketInfo { get; set; } = new AppointmentTicketInfo();
 
         [JsonProperty("reservation_id")]
         public int ReservationId { get; set; }
@@ -50,7 +50,7 @@ namespace BezKolejki_bot.Models
 
         public string AppointmentTime { get; set; } = string.Empty;
 
-        public GdanskTakeAppointmentService Service { get; set; }
+        public GdanskTakeAppointmentService Service { get; set; } = new GdanskTakeAppointmentService();
 
         public string TicketNumber { get; set; } = string.Empty;
 
@@ -73,7 +73,7 @@ namespace BezKolejki_bot.Models
         public string AppointmentDay { get; set; } = string.Empty;
         public string AppointmentTime { get; set; } = string.Empty;
 
-        public GdanskAppointmentCustomerInfoRequestWebModel CustomerInfo { get; set; }
+        public GdanskAppointmentCustomerInfoRequestWebModel CustomerInfo { get; set; } = new GdanskAppointmentCustomerInfoRequestWebModel();
 
         public string LanguagePrefix { get; set; } = "pl";
         public string SelectedLanguage { get; set; } = "pl";
@@ -83,7 +83,7 @@ namespace BezKolejki_bot.Models
 
     public class GdanskAppointmentCustomerInfoRequestWebModel
     {
-        public GdanskAppointmentAdditionalInfoRequest AdditionalInfo { get; set; }
+        public GdanskAppointmentAdditionalInfoRequest AdditionalInfo { get; set; } = new GdanskAppointmentAdditionalInfoRequest();
 
     }
     public class GdanskAppointmentAdditionalInfoRequest
