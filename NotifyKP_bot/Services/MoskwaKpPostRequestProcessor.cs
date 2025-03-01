@@ -3,15 +3,13 @@ using Microsoft.Extensions.Logging;
 using Services.Interfaces;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
-using System.Net;
 using System.Net.Http.Json;
-using Tesseract;
 using SixLabors.ImageSharp.Processing;
 using Newtonsoft.Json;
-using Microsoft.ML.Data;
 using Microsoft.ML;
 using Services.Models;
 using BezKolejki_bot.Models;
+using System.Text;
 
 
 namespace BezKolejki_bot.Services
@@ -23,14 +21,19 @@ namespace BezKolejki_bot.Services
         private readonly IBezKolejkiService _bezKolejkiService;
         private readonly IClientService _clientService;
         private readonly ITelegramBotService _telegramBotService;
-
+        private readonly ICaptchaRecognitionService _captchaService;
         private readonly MLContext _mlContext;
         private ITransformer _model;
         private bool _isModelLoaded = false;
         private readonly string _modelPath;
         private readonly string _folderPath;
 
-        public MoskwaKpPostRequestProcessor(ILogger<MoskwaKpPostRequestProcessor> logger, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService, IClientService clientService, ITelegramBotService telegramBotService)
+        public MoskwaKpPostRequestProcessor(ILogger<MoskwaKpPostRequestProcessor> logger, 
+            IHttpClientFactory httpClientFactory, 
+            IBezKolejkiService bezKolejkiService, 
+            IClientService clientService, 
+            ITelegramBotService telegramBotService,
+            ICaptchaRecognitionService captchaService)
         {
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient();
@@ -38,6 +41,7 @@ namespace BezKolejki_bot.Services
             _bezKolejkiService = bezKolejkiService;
             _clientService = clientService;
             _telegramBotService = telegramBotService;
+            _captchaService = captchaService;
 
             _mlContext = new MLContext();
             _folderPath = "c:\\1\\ok2";
@@ -79,21 +83,21 @@ namespace BezKolejki_bot.Services
 
             int attempts = 0;
             int maxRetries = 5;
-            FirstPostRequestModel? captchaResponse = null;
+            ApiResult<FirstPostRequestModel?> captchaResponse = null;
             ApiResult<SecondPostResponseModel> secondRequest = null;
 
 
             while (attempts < maxRetries)
             {
                 captchaResponse = await FirstPostRequest(url);
-                if (captchaResponse != null)
+                if (captchaResponse != null && captchaResponse.Data != null)
                 {
-                    SaveImageToFile("c:\\1", captchaResponse.Id, captchaResponse.Image, captchaResponse.Kod ?? string.Empty);
+                    SaveImageToFile("c:\\1", captchaResponse.Data.Id, captchaResponse.Data.Image, captchaResponse.Data.Kod ?? string.Empty);
 
 
-                    if (!string.IsNullOrEmpty(captchaResponse.Kod) && captchaResponse.Kod.Length == 4)
+                    if (!string.IsNullOrEmpty(captchaResponse.Data.Kod) && captchaResponse.Data.Kod.Length == 4)
                     {
-                        var payloadSprawdz = new { kod = captchaResponse.Kod, token = captchaResponse.Id };
+                        var payloadSprawdz = new { kod = captchaResponse.Data.Kod, token = captchaResponse.Data.Id };
 
                         secondRequest = await SendPostRequest<SecondPostResponseModel>("https://api.e-konsulat.gov.pl/api/u-captcha/sprawdz", payloadSprawdz);
 
@@ -130,7 +134,7 @@ namespace BezKolejki_bot.Services
             await Task.Delay(300);
             var payloadThird = new { token = secondRequest.Data.Token };
             var thirdResponse = await SendPostRequest<ThirdPostResponseModel>(url, payloadThird);
-            SaveImageToFile("c:\\1\\ok", captchaResponse?.Id ?? string.Empty, captchaResponse?.Image ?? string.Empty, captchaResponse?.Kod ?? string.Empty);
+            SaveImageToFile("c:\\1\\ok", captchaResponse?.Data?.Id ?? string.Empty, captchaResponse?.Data?.Image ?? string.Empty, captchaResponse?.Data?.Kod ?? string.Empty);
 
 
             var dates = new HashSet<string>();
@@ -319,84 +323,101 @@ namespace BezKolejki_bot.Services
         }
         private async Task LearningML(string fullPatch, string directoryPatch)
         {
-            //var mlContext = new MLContext();
+            if (!File.Exists(fullPatch))
+            {
+                throw new FileNotFoundException($"CSV file not found: {fullPatch}");
+            }
 
+            _logger.LogInformation("Loading data from CSV file: {FilePath}", fullPatch);
             var data = _mlContext.Data.LoadFromTextFile<CaptchaData>(
                 path: fullPatch,
                 separatorChar: ',',
                 hasHeader: true
             );
 
-
-            var enumerableData = _mlContext.Data.CreateEnumerable<CaptchaData>(data, reuseRowObject: false).Take(5);
+            // Предобработка изображений
+            var enumerableData = _mlContext.Data.CreateEnumerable<CaptchaData>(data, reuseRowObject: false).ToList();
             foreach (var item in enumerableData)
             {
-                Console.WriteLine($"Label: {item.Label}, Features: {string.Join(", ", item.ImagePath)}");
+                if (!File.Exists(item.ImagePath))
+                {
+                    throw new FileNotFoundException($"Image file not found: {item.ImagePath}");
+                }
+
+                using (var image = Image.Load<Rgba32>(item.ImagePath))
+                {
+                    var preprocessedImage = image.Clone(ctx =>
+                    {
+                        ctx.Resize(200, 100);
+                        ctx.Grayscale();
+                        ctx.BinaryThreshold(0.5f);
+                        ctx.MedianBlur(2, true);
+                    });
+
+                    string processedImagePath = Path.Combine(directoryPatch, $"processed_{Path.GetFileName(item.ImagePath)}");
+                    preprocessedImage.Save(processedImagePath);
+
+                    item.ImagePath = processedImagePath; // Обновите путь к изображению
+                }
             }
 
+            // Разделение данных на обучающую и тестовую выборки
+            var splitData = _mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+
+            _logger.LogInformation("Creating pipeline...");
             var pipeline = _mlContext.Transforms.Conversion.MapValueToKey("Label")
                 .Append(_mlContext.Transforms.LoadImages(outputColumnName: "Image", imageFolder: directoryPatch, inputColumnName: "ImagePath"))
                 .Append(_mlContext.Transforms.ResizeImages(outputColumnName: "Image", imageWidth: 200, imageHeight: 100))
                 .Append(_mlContext.Transforms.ExtractPixels(outputColumnName: "Image"))
-                .Append(_mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy(labelColumnName: "Label", featureColumnName: "Image"))
+                .Append(_mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy(
+                    labelColumnName: "Label",
+                    featureColumnName: "Image",
+                    enforceNonNegativity: false,
+                    l1Regularization: (float)0.1,
+                    l2Regularization: (float)0.5
+                ))
                 .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
 
+            _logger.LogInformation("Training model...");
+            var model = pipeline.Fit(splitData.TrainSet);
 
-            // Train model
-            var model = pipeline.Fit(data);
+            _logger.LogInformation("Evaluating model...");
+            var predictions = model.Transform(splitData.TestSet);
+            var metrics = _mlContext.MulticlassClassification.Evaluate(predictions);
+
+            var message =
+            $"Model evaluation metrics:\n" +
+            $"Accuracy: {metrics.MacroAccuracy:P2}\n" +
+            $"Log Loss: {metrics.LogLoss}\n" +
+            $"Confusion Matrix: {metrics.ConfusionMatrix.GetFormattedConfusionTable()}";
+            await _telegramBotService.SendTextMessage(5993130676, $"{message}");
 
             string modelPath = Path.Combine(directoryPatch, "CaptchaModel.zip");
+            _logger.LogInformation("Saving model to: {ModelPath}", modelPath);
             await Task.Run(() => _mlContext.Model.Save(model, data.Schema, modelPath));
 
-            Console.WriteLine("Model training complete.");
+            if (!File.Exists(modelPath))
+            {
+                throw new InvalidOperationException($"Failed to save model: {modelPath}");
+            }
+
+            _logger.LogInformation("Model saved successfully.");
         }
 
-        public async Task<FirstPostRequestModel?> FirstPostRequest(string url)
+        public async Task<ApiResult<FirstPostRequestModel?>> FirstPostRequest(string url)
         {
             var payLoad = new { imageWidth = 400, imageHeight = 200 };
-            string recognizedText = string.Empty;
-            try
-            {
-                var response = await _httpClient.PostAsJsonAsync("https://api.e-konsulat.gov.pl/api/u-captcha/generuj", payLoad);
-                await Task.Delay(1000);
+            var response = await SendPostRequest<FirstPostRequestModel>("https://api.e-konsulat.gov.pl/api/u-captcha/generuj", payLoad);
 
-                if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.NotFound)
-                {
-                    Error? error = await response.Content.ReadFromJsonAsync<Error>();
-                    _logger.LogWarning($"{response.StatusCode}");
-                    _logger.LogWarning(error?.Message);
-                }
-                else
-                {
-                    var content = await response.Content.ReadFromJsonAsync<FirstPostRequestModel>();
-                    if (content != null)
-                    {
-                        byte[] imageBytes = Convert.FromBase64String(content.Image);
-                        using (var ms = new MemoryStream(imageBytes))
-                        {
-                            Image<Rgba32> preprocessedImage = PreprocessImage(ms);
-                            recognizedText = RecognizeCaptcha(preprocessedImage, @"d:\Work\dev\Telegram_bot\tessdata");
-                            _logger.LogInformation("Распознанный текст: " + recognizedText);
-                            content.Kod = recognizedText;
-                            return content;
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("The response content is null");
-                    }
-                }
-            }
-            catch (HttpRequestException httpEx)
+            if (response != null && response.Data != null)
             {
-                _logger.LogError($"HTTP error occurred while processing URL {url}: {httpEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"An error occurred while processing POST request to {url}: {ex.Message}");
+                //var kodML = await _captchaService.RecognizeCaptchaML(_captchaService.ConvertBase64ToImage(response.Data.Image));
+                var kodT = await _captchaService.RecognizeCaptchaTesseract(response.Data.Image);
+                //_logger.LogInformation($"{kodML} - {kodT}");
+                response.Data.Kod = kodT;
             }
 
-            return null;
+            return response;
         }
         private void SaveImageToFile(string path, string id, string image, string recognizedText)
         {
@@ -462,50 +483,6 @@ namespace BezKolejki_bot.Services
                 _logger.LogWarning($"HTTP Error {response.StatusCode}: {result?.ErrorMessage}");
             }
             return result;
-        }
-        static string RecognizeCaptcha(Image<Rgba32> image, string tessDataPath)
-        {
-            using (var engine = new TesseractEngine(tessDataPath, "eng", EngineMode.Default))
-            {
-                engine.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789#=@+");
-
-                using (var pix = PixConverter.ToPix(image))
-                {
-                    using (var page = engine.Process(pix, PageSegMode.SingleLine))
-                    {
-                        return page.GetText().Trim();
-                    }
-                }
-            }
-        }
-
-        public static class PixConverter
-        {
-            public static Pix ToPix(Image<Rgba32> image)
-            {
-                using (var stream = new MemoryStream())
-                {
-                    image.SaveAsBmp(stream);
-                    stream.Seek(0, SeekOrigin.Begin);
-                    return Pix.LoadFromMemory(stream.ToArray());
-                }
-            }
-        }
-
-        static Image<Rgba32> PreprocessImage(Stream imageStream)
-        {
-            Image<Rgba32> image = Image.Load<Rgba32>(imageStream);
-
-            image.Mutate(x =>
-            {
-                x.Grayscale();
-                x.Contrast(1.5f);
-                x.AdaptiveThreshold();  
-                x.BinaryThreshold(0.4f);
-                x.GaussianBlur(0.8f);
-                x.Crop(new Rectangle(80, 40, image.Width - 80, image.Height - 40));
-            });
-            return image;
         }
 
         private Image<Rgba32> PreprocessImageML(Image<Rgba32> image)
@@ -588,20 +565,7 @@ namespace BezKolejki_bot.Services
             _isModelLoaded = true;
         }
 
-     
-        public class CaptchaData
-        {
-            [LoadColumn(0)]
-            public string ImagePath { get; set; } = string.Empty;
-            [LoadColumn(1)]
-            public string Label { get; set; } = string.Empty;
-        }
-        public class CaptchaPrediction
-        {
-            [ColumnName("PredictedLabel")]
-            public string PredictedLabel { get; set; } = string.Empty;
-        }
-
+    
         public class ApiResult<T>
         {
             public bool IsSuccess { get; set; }      

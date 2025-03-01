@@ -3,6 +3,7 @@ using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Services.Interfaces;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -47,16 +48,19 @@ namespace BezKolejki_bot.Services
                 DateOnly minDate = DateOnly.FromDateTime(DateTime.Now.AddDays(1));
                 DateOnly maxDate =minDate.AddDays(90);
 
+                (minDate, maxDate) = ExtractMinMaxDates(content);
+
                 List<DateOnly> disabledDays = await DatesFromSite(content, minDate);
                 if (disabledDays == null || !disabledDays.Any())
                 {
                     _logger.LogWarning("The `disabledDays` list was not found or is empty.");
-                    return;
+                    disabledDays = new List<DateOnly>();
                 }
+
 
                 for (DateOnly date = minDate; date <= maxDate; date = date.AddDays(1))
                 {
-                    if (!disabledDays.Contains(date))
+                    if (!disabledDays.Contains(date) && date.DayOfWeek != DayOfWeek.Sunday && date.DayOfWeek != DayOfWeek.Saturday)
                     {
                         var isAvailableDate = await GetAvailableTimeByDate(date, client);
                         if (isAvailableDate)
@@ -160,5 +164,37 @@ namespace BezKolejki_bot.Services
 
             return Task.FromResult(dateList);
         }
+
+        public static (DateOnly minDate, DateOnly maxDate) ExtractMinMaxDates(string html)
+        {
+            var minRegex = new Regex(@"minDate:\s*new Date\(""(?<min>\d{4}/\d{2}/\d{2})""\)", RegexOptions.IgnoreCase);
+            var maxRegex = new Regex(@"maxDate:\s*new Date\(""(?<max>\d{4}/\d{2}/\d{2})""\)", RegexOptions.IgnoreCase);
+
+            DateOnly minDate = DateOnly.FromDateTime(DateTime.Now.AddDays(1));
+            DateOnly maxDate = minDate.AddDays(90);
+
+            var minMatch = minRegex.Match(html);
+            if (minMatch.Success)
+            {
+                var minDateStr = minMatch.Groups["min"].Value;
+                if (DateOnly.TryParseExact(minDateStr, "yyyy/MM/dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly parsedMin))
+                {
+                    minDate = parsedMin;
+                }
+            }
+
+            var maxMatch = maxRegex.Match(html);
+            if (maxMatch.Success)
+            {
+                var maxDateStr = maxMatch.Groups["max"].Value;
+                if (DateOnly.TryParseExact(maxDateStr, "yyyy/MM/dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly parsedMax))
+                {
+                    maxDate = parsedMax;
+                }
+            }
+
+            return (minDate, maxDate);
+        }
+
     }
 }

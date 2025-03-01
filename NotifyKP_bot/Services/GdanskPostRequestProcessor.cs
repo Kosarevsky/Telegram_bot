@@ -79,12 +79,13 @@ namespace BezKolejki_bot.Services
                                         if (clientIndex < clients.Count)
                                         {
                                             var client = clients[clientIndex];
-
-                                            var res = DateTime.Compare(parsedDate, new DateTime(2025, 03, 01));
+                                            var jsonPayload = CreateJsonPayload(SedcoBranchID, SedcoServiceID, BranchID, ServiceID, reformattedDate, time.time, client);
+                                            var result = await ProcessRegistration(jsonPayload, client);
+                                           
+/*                                          var res = DateTime.Compare(parsedDate, new DateTime(2025, 03, 01));
                                             if (res > 0) { 
-                                                var jsonPayload = CreateJsonPayload(SedcoBranchID, SedcoServiceID, BranchID, ServiceID, reformattedDate, time.time, client);
-                                                var result = await ProcessRegistration(jsonPayload, client);
-                                            }
+
+                                            }*/
 
                                             clientIndex++;
                                         }
