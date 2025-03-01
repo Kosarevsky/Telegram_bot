@@ -4,7 +4,7 @@
   },
   "Telegram": {
     "BotToken": "YOUR_TELEGRAM_BOT_TOKEN",
-    "ChatId": "YOUR_CHAT_ID"
+    "AdminTelegramId": "123456789"
   },
   "ScheduledTask": {
     "RunTaskBezKolejki": 60,

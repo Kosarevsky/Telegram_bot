@@ -15,18 +15,16 @@ namespace Services.Services
     {
         private readonly ITelegramBotClient _botClient;
         private readonly ILogger _logger;
-        private readonly long _chatId;
         private readonly IUserService _userService;
         private readonly IEventPublisherService _eventPublisher;
         private readonly IBezKolejkiService _bezKolejkiService;
         private readonly ConcurrentDictionary<long , int> _userMessageCounts = new ();
         private readonly ConcurrentDictionary<long , DateTime> _usersBan = new ();
         private readonly Timer _resetTimer;
-        public TelegramBotService(ITelegramBotClient botClient,ILogger<TelegramBotService> logger,IConfiguration configuration, IUserService userService, IEventPublisherService eventPublisher, IBezKolejkiService bezKolejkiService)
+        public TelegramBotService(ITelegramBotClient botClient,ILogger<TelegramBotService> logger, IUserService userService, IEventPublisherService eventPublisher, IBezKolejkiService bezKolejkiService)
         {
             _botClient = botClient;
             _logger = logger;
-            _chatId = long.Parse(configuration["Telegram:ChatId"]) ;
             _userService = userService;
             _eventPublisher = eventPublisher;
             _bezKolejkiService = bezKolejkiService;

@@ -1,5 +1,6 @@
 ﻿using BezKolejki_bot.Interfaces;
 using BezKolejki_bot.Models;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Services.Interfaces;
@@ -18,14 +19,16 @@ namespace BezKolejki_bot.Services
         private readonly ITelegramBotService _telegramBotService;
         private readonly IClientService _clientService;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
+        private readonly long _adminTlgId;
 
-        public GdanskPostRequestProcessor(ILogger<GdanskPostRequestProcessor> logger, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService, ITelegramBotService telegramBotService, IClientService clientService)
+        public GdanskPostRequestProcessor(ILogger<GdanskPostRequestProcessor> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService, ITelegramBotService telegramBotService, IClientService clientService)
         {
             _logger = logger;
             _httpClient = httpClientFactory;
             _bezKolejkiService = bezKolejkiService;
             _telegramBotService = telegramBotService;
             _clientService = clientService;
+            _ = long.TryParse(configuration["Telegram:AdminTelegramId"], out long _adminTlgId);
             _jsonSerializerSettings = new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Ignore,
@@ -57,7 +60,7 @@ namespace BezKolejki_bot.Services
                     dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
                     if (dates.Count > 0) { 
                         if (code == "/Gdansk01")
-                    await _telegramBotService.SendTextMessage(5993130676, $"есть дата.{DateTime.Now.ToString()}");
+                    await _telegramBotService.SendTextMessage(_adminTlgId, $"есть дата.{DateTime.Now.ToString()}");
 
 
                     var clients = await _clientService.GetAllAsync(u => u.Code == code && u.IsActive && !u.IsRegistered);
@@ -134,7 +137,7 @@ namespace BezKolejki_bot.Services
                         }
                     }
                 };
-                _telegramBotService.SendTextMessage(5993130676, $"создал POST на регу. \n{client?.Email} \n{JsonConvert.SerializeObject(obj)}");
+                _telegramBotService.SendTextMessage(_adminTlgId, $"создал POST на регу. \n{client?.Email} \n{JsonConvert.SerializeObject(obj)}");
             };
 
 
@@ -158,31 +161,31 @@ namespace BezKolejki_bot.Services
             var messText = result != null
                 ? JsonConvert.SerializeObject(result, _jsonSerializerSettings)
                 : "result is null";
-            await _telegramBotService.SendTextMessage(5993130676, $"2Отправил POST на регу. \n{client.Email} \n{messText} \n{JsonConvert.SerializeObject(jsonPayload)}");
+            await _telegramBotService.SendTextMessage(_adminTlgId, $"2Отправил POST на регу. \n{client.Email} \n{messText} \n{JsonConvert.SerializeObject(jsonPayload)}");
 
             if (result != null)
             {
                 if (result?.RESPONSE == null)
                 {
-                    await _telegramBotService.SendTextMessage(5993130676, $"result.RESPONSE=null");
+                    await _telegramBotService.SendTextMessage(_adminTlgId, $"result.RESPONSE=null");
                 }
                 else
                 {
                     if (result?.RESPONSE.TakeAppointmentResult == null)
                     {
-                        await _telegramBotService.SendTextMessage(5993130676, $"result.RESPONSE.TakeAppointmentResult=null");
+                        await _telegramBotService.SendTextMessage(_adminTlgId, $"result.RESPONSE.TakeAppointmentResult=null");
                     }
                     else
                     {
                         if (result?.RESPONSE.TakeAppointmentResult.Code == null)
                         {
-                            await _telegramBotService.SendTextMessage(5993130676, $"result.RESPONSE.TakeAppointmentResult.code=null");
+                            await _telegramBotService.SendTextMessage(_adminTlgId, $"result.RESPONSE.TakeAppointmentResult.code=null");
                         }
                         else
                         {
                             if (result.RESPONSE.TakeAppointmentResult.Description == null)
                             {
-                                await _telegramBotService.SendTextMessage(5993130676, $"result.RESPONSE.TakeAppointmentResult.code=null");
+                                await _telegramBotService.SendTextMessage(_adminTlgId, $"result.RESPONSE.TakeAppointmentResult.code=null");
                             }
                         }
 
@@ -192,7 +195,7 @@ namespace BezKolejki_bot.Services
 
                 var text = $"{result?.RESPONSE?.TakeAppointmentResult.Code}" +
                     $"{result?.RESPONSE?.TakeAppointmentResult.Description}";
-                await _telegramBotService.SendTextMessage(5993130676, $"description {client.Email}\n{text}");
+                await _telegramBotService.SendTextMessage(_adminTlgId, $"description {client.Email}\n{text}");
 
 
                 if (result?.RESPONSE.TakeAppointmentResult.Code == 0 && result.RESPONSE.TakeAppointmentResult.Description == "Success")
@@ -206,15 +209,15 @@ namespace BezKolejki_bot.Services
                     client.DateRegistration = DateTime.Now;
                     client.IsRegistered = true;
                     client.IsActive = false;
-                    await _telegramBotService.SendTextMessage(5993130676, $"{client.Email}\n{text}");
+                    await _telegramBotService.SendTextMessage(_adminTlgId, $"{client.Email}\n{text}");
                     await _clientService.SaveAsync(client);
                 }
             }
             else
             { 
-                await _telegramBotService.SendTextMessage(5993130676, $"result == null конец реги .{DateTime.Now.ToString()}");
+                await _telegramBotService.SendTextMessage(_adminTlgId, $"result == null конец реги .{DateTime.Now.ToString()}");
             }
-            await _telegramBotService.SendTextMessage(5993130676, $"конец реги .{DateTime.Now.ToString()}");
+            await _telegramBotService.SendTextMessage(_adminTlgId, $"конец реги .{DateTime.Now.ToString()}");
 
             return result;
         }
@@ -222,12 +225,12 @@ namespace BezKolejki_bot.Services
         private async Task<T?> SendPostRequest<T>(GdanskAppointmentRequestWebModel jsonPayload) where T: class
         {
 
-            await _telegramBotService.SendTextMessage(5993130676, $"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonPayload)}");
+            await _telegramBotService.SendTextMessage(_adminTlgId, $"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonPayload)}");
 
             var client = _httpClient.CreateClient();
             var formData = new MultipartFormDataContent();
             var jsonString = JsonConvert.SerializeObject(jsonPayload, _jsonSerializerSettings);
-            await _telegramBotService.SendTextMessage(5993130676, $"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonString)}");
+            await _telegramBotService.SendTextMessage(_adminTlgId, $"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonString)}");
 
             //formData.Add(new StringContent(jsonString), "JSONForm");
             formData.Add(new StringContent(jsonString, Encoding.UTF8, "application/json"), "JSONForm");
@@ -306,8 +309,8 @@ namespace BezKolejki_bot.Services
             {
                 var content = await response.Content.ReadAsStringAsync();
                 var error1 = JsonConvert.DeserializeObject<T>(content);
-                await _telegramBotService.SendTextMessage(5993130676, $" error45 {content}");
-                await _telegramBotService.SendTextMessage(5993130676, $" error55 {error1}");
+                await _telegramBotService.SendTextMessage(_adminTlgId, $" error45 {content}");
+                await _telegramBotService.SendTextMessage(_adminTlgId, $" error55 {error1}");
 
                 var error = await response.Content.ReadFromJsonAsync<Error>();
                 _logger.LogWarning(message: $"HTTP Error {response.StatusCode}: {error?.Message} {error?.ToString()}");
