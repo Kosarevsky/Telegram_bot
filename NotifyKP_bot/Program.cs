@@ -85,6 +85,7 @@ namespace BezKolejki_bot
                     services.AddHostedService<TelegramBotService>();
                     services.AddSingleton<ITelegramBotService, TelegramBotService>();
                     services.AddTransient<ICaptchaRecognitionService, CaptchaRecognitionService>();
+                    services.AddTransient<ILocalizationService, LocalizationService>();
                 });
     }
 }

@@ -6,6 +6,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using Tesseract;
 using BezKolejki_bot.Models;
+using Newtonsoft.Json;
 
 namespace Services.Services
 {
@@ -98,6 +99,13 @@ namespace Services.Services
                 if (!_isModelLoaded)
                 {
                     LoadMlModel();
+
+                }
+
+                if (_mlModel == null)
+                {
+                    _logger.LogError("Model is not loaded.");
+                    return string.Empty;
                 }
 
                 // Предобработка для ML (можно вынести в отдельный метод PreprocessImageForML)
@@ -111,8 +119,13 @@ namespace Services.Services
 
                 // Создаём временный файл для сохранения изображения
                 string tempImagePath = Path.ChangeExtension(Path.GetTempFileName(), ".png");
-                await preprocessedImage.SaveAsync(tempImagePath);
-
+                await preprocessedImage.SaveAsync(tempImagePath).ConfigureAwait(false);
+               
+                if (!File.Exists(tempImagePath))
+                {
+                    _logger.LogError("Temporary image file was not created.");
+                    return string.Empty;
+                }
                 // Подготовка входных данных
                 var input = new CaptchaData { ImagePath = tempImagePath };
                 var inputData = _mlContext.Data.LoadFromEnumerable(new[] { input });
@@ -120,9 +133,19 @@ namespace Services.Services
                 // Применение модели
                 var predictions = _mlModel.Transform(inputData);
                 var predictedLabels = _mlContext.Data.CreateEnumerable<CaptchaPrediction>(predictions, reuseRowObject: false);
+
+                _logger.LogInformation($"{tempImagePath} Input data: {JsonConvert.SerializeObject(inputData)}");
+                _logger.LogInformation($"Predictions: {JsonConvert.SerializeObject(predictedLabels)}");
+
                 File.Delete(tempImagePath);
 
-                return predictedLabels.FirstOrDefault()?.PredictedLabel ?? string.Empty;
+                var predictedLabel = predictedLabels.FirstOrDefault();
+                if (predictedLabel == null)
+                {
+                    _logger.LogWarning("No predictions were made by the model.");
+                    return string.Empty;
+                }
+                return predictedLabel.PredictedLabel ?? string.Empty;
             }
             catch (Exception ex)
             {

@@ -11,6 +11,9 @@
     "TimeOutBrowser": 120,
     "BrowserIsVisible": false
   },
+  "OtherSettings": {
+    "DonateUrl": "https://buymeacoffee.com/xxxxx"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",

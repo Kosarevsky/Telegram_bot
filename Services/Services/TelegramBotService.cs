@@ -18,17 +18,42 @@ namespace Services.Services
         private readonly IUserService _userService;
         private readonly IEventPublisherService _eventPublisher;
         private readonly IBezKolejkiService _bezKolejkiService;
+        private readonly ILocalizationService _lang;
         private readonly ConcurrentDictionary<long , int> _userMessageCounts = new ();
         private readonly ConcurrentDictionary<long , DateTime> _usersBan = new ();
         private readonly Timer _resetTimer;
-        public TelegramBotService(ITelegramBotClient botClient,ILogger<TelegramBotService> logger, IUserService userService, IEventPublisherService eventPublisher, IBezKolejkiService bezKolejkiService)
+        private readonly long _adminTlgId;
+        private readonly string _donateUrl = string.Empty;
+        public TelegramBotService(
+            ITelegramBotClient botClient,
+            ILogger<TelegramBotService> logger, 
+            IUserService userService, 
+            IEventPublisherService eventPublisher, 
+            IBezKolejkiService bezKolejkiService,
+            ILocalizationService lang,
+            IConfiguration configuration)
         {
             _botClient = botClient;
             _logger = logger;
             _userService = userService;
             _eventPublisher = eventPublisher;
             _bezKolejkiService = bezKolejkiService;
-             _resetTimer = new Timer(_ => ResetMessageCounts(), null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
+            _lang = lang;
+            _donateUrl = configuration["OtherSettings:DonateUrl"];
+            try
+            {
+                _resetTimer = new Timer(_ => ResetMessageCounts(), null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to initialize timer: {ex.Message}");
+            }
+            if (long.TryParse(configuration["Telegram:AdminTelegramId"], out long resParse))
+            {
+                _adminTlgId = resParse;
+            }
+
+
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -105,6 +130,22 @@ namespace Services.Services
             {
                 switch (selectedButton)
                 {
+                    case "/Donate":
+                        await HandleDonateCommand(userId);
+                        break;
+
+                    case "/Subscriptions":
+                        await SendSubscriptionList(userId, CreateMainKeyboard());
+                        break;
+
+                    case "/StopSubscription":
+                        await StopSubscription(userId);
+                        break;
+
+                    case "/StartSubscription":
+                        await StartSubscription(userId, CreateMainKeyboard());
+                        break;  
+
                     case "Gdansk":
                         var questionKeyboardGdansk = new InlineKeyboardMarkup(new[]
                         {
@@ -245,16 +286,6 @@ namespace Services.Services
                         await ProcessSubscriptionSelection(callbackQuery);
                         break;
 
-                    case "/Subscriptions":
-                        await SendSubscriptionList(userId, CreateMainKeyboard());
-                        break;
-                    case "/StopSubscription":
-                        await StopSubscription(userId);
-                        break;
-
-                    case "/StartSubscription":
-                        await StartSubscription(userId, CreateMainKeyboard());
-                        break;
                     default:
                         await SendTextMessage(
                             userId,
@@ -298,11 +329,12 @@ namespace Services.Services
             IncrementMessageCount(message.Chat.Id);
             if (MessageCountFromUser(message.Chat.Id) == 15)
             {
-                await SendTextMessage(message.Chat.Id, "Слишком много сообщений. Отдохнем пару минут");
+                await SendTextMessage(message.Chat.Id, "Слишком много сообщений. Отдохните пару минут");
             }
-            if (MessageCountFromUser(message.Chat.Id) >= 16)
+            if (MessageCountFromUser(message.Chat.Id) == 16)
             {
                 BanUser(message.Chat.Id, 60);
+                await SendTextMessage(message.Chat.Id, "Слишком много сообщений. Отдыхаем");
             }
 
             if (!IsUserBanned(message.Chat.Id))
@@ -312,9 +344,10 @@ namespace Services.Services
                 var commands = new Dictionary<string, Func<Task>>()
                 {
                     {"/start", async () => await HandleStartCommand(tgUser, mainKeyboard) },
-                    {"Меню", async () => await HandleMenuCommand(tgUser.TelegramUserId) },
+                    {"Menu", async () => await HandleMenuCommand(tgUser.TelegramUserId, mainKeyboard) },
                     {"/date", async() => await HandleDateCommand(tgUser, mainKeyboard) },
-                    {"Подписки", async () => await HandleSubscriptionCommand(message.Chat.Id) }
+                    {"Info", async () => await HandleSubscriptionCommand(tgUser, mainKeyboard) },
+
                 };
 
                 if (commands.TryGetValue(message?.Text ?? string.Empty, out var commandHandler))
@@ -365,24 +398,26 @@ namespace Services.Services
             }
         }
 
-        private async Task HandleSubscriptionCommand(long telegramUserId)
+        private async Task HandleSubscriptionCommand(UserModel tgUser, ReplyKeyboardMarkup mainKeyboard)
         {
-            var users = await _userService.GetAllAsync(u => u.TelegramUserId == telegramUserId);
+            var users = await _userService.GetAllAsync(u => u.TelegramUserId == tgUser.TelegramUserId);
             var user = users.FirstOrDefault();
             if (user != null)
             {
+                var language = user.Language ?? "en"; 
                 var buttons = new List<InlineKeyboardButton[]>
                 {
-                    new [] { InlineKeyboardButton.WithCallbackData("Мои подписки", "/Subscriptions") },
-                };
+                    new[] { InlineKeyboardButton.WithCallbackData(_lang.GetText(language, "HelpButton"), "/Donate") },
+                    new[] { InlineKeyboardButton.WithCallbackData(_lang.GetText(language, "SubscriptionsButton"), "/Subscriptions") },
+                }
+            ;
                 buttons.Add(user.IsActive
-                    ? new[] { InlineKeyboardButton.WithCallbackData("Stop уведомления", "/StopSubscription") }
-                    : new[] { InlineKeyboardButton.WithCallbackData("Start уведомления", "/StartSubscription") }
+                    ? new[] { InlineKeyboardButton.WithCallbackData(_lang.GetText(language, "StopNotificationsButton"), "/StopSubscription") }
+                    : new[] { InlineKeyboardButton.WithCallbackData(_lang.GetText(language, "StartNotificationsButton"), "/StartSubscription") }
                     );
-
                 var subscriptionKeyboard = new InlineKeyboardMarkup(buttons);
 
-                await SendTextMessage(telegramUserId, "Ваш выбор:", replyMarkup: subscriptionKeyboard);
+                await SendTextMessage(user.TelegramUserId, _lang.GetText(language, "HelpMessage"), replyMarkup: subscriptionKeyboard);
             }
         }
 
@@ -430,8 +465,23 @@ namespace Services.Services
         {
             await SendTextMessage(tgUser.TelegramUserId, $"Current date: {DateTime.Now}", replyMarkup: mainKeyboard);
         }
+        private async Task HandleDonateCommand(long telegramUserId)
+        {
+            var users = await _userService.GetAllAsync(u => u.TelegramUserId == telegramUserId);
+            var user = users.FirstOrDefault();
+            if (user != null)
+            {
+                var language = user.Language ?? "en";
 
-        private async Task HandleMenuCommand(long telegramUserId)
+                var donateButton = InlineKeyboardButton.WithUrl(_lang.GetText(language, "DonateButton"), _donateUrl);
+                var donateKeyboard = new InlineKeyboardMarkup(donateButton);
+
+                var message = string.Join("\n", _lang.GetText(language, "DonateMessage"), _donateUrl);
+                await SendTextMessage(telegramUserId, message, replyMarkup: donateKeyboard);
+            }
+        }
+
+        private async Task HandleMenuCommand(long telegramUserId, ReplyKeyboardMarkup mainKeyboard)
         {
             var cityKeyboard = new InlineKeyboardMarkup(new[]
             {
@@ -450,7 +500,7 @@ namespace Services.Services
 
         private async Task HandleStartCommand(UserModel tgUser, ReplyKeyboardMarkup mainKeyboard)
         {
-            var mess = "Welcome to the bot!\n** Бот находится стадии разработки. **\nНажмите 'Меню', чтобы выбрать город.";
+            var mess = "Welcome to the bot!\n** Бот находится в стадии разработки. **\nНажмите 'Menu', чтобы выбрать город.";
             await SendTextMessage(tgUser.TelegramUserId, mess, replyMarkup: mainKeyboard);
             await _userService.UpdateLastNotificationDateAsync(tgUser);
         }
@@ -459,7 +509,7 @@ namespace Services.Services
         {
             return new ReplyKeyboardMarkup(new[]
             {
-                new KeyboardButton[] { "Меню" , "Подписки"},
+                new KeyboardButton[] { "Menu" , "Info"},
             })
             {
                 ResizeKeyboard = true,
@@ -474,7 +524,7 @@ namespace Services.Services
             return Task.CompletedTask;
         }
 
-        public async Task SendTextMessage(long chatId, string messageText, IReplyMarkup replyMarkup = null, CancellationToken cancellationToken = default)
+        public async Task SendTextMessage(long chatId, string messageText, ReplyMarkup replyMarkup = null, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -492,6 +542,22 @@ namespace Services.Services
                 await Task.Delay(retryAfter * 1000, cancellationToken);
                 await SendTextMessage(chatId, messageText, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
             }
+            catch (TaskCanceledException)
+            {
+                _logger.LogError("Request timed out.");
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogError("Operation was canceled.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"An error occurred while sending message: {ex.Message}");
+            }
+        }
+        public async Task SendAdminTextMessage(string messageText, ReplyMarkup replyMarkup = null, CancellationToken cancellationToken = default)
+        {
+            await SendTextMessage(_adminTlgId, messageText, replyMarkup, cancellationToken);
         }
 
         private async Task DeactivateUserAsync(long chatId)
@@ -511,11 +577,11 @@ namespace Services.Services
 
         public void BanUser(long telegramId, int durationInSecond)
         {
-            _logger.LogWarning($"User {telegramId} banned in {durationInSecond}");
+            _logger.LogWarning($"User {telegramId} banned for {durationInSecond} seconds. Message count: {_userMessageCounts[telegramId]}");
             _usersBan[telegramId] =  DateTime.UtcNow.AddSeconds(durationInSecond);
         }
 
-        public bool IsUserBanned(long telegramId)
+        private bool IsUserBanned(long telegramId)
         { 
             if (_usersBan.TryGetValue(telegramId, out var banUntil))
             {

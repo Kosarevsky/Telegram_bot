@@ -92,7 +92,7 @@ namespace BezKolejki_bot.Services
                 captchaResponse = await FirstPostRequest(url);
                 if (captchaResponse != null && captchaResponse.Data != null)
                 {
-                    SaveImageToFile("c:\\1", captchaResponse.Data.Id, captchaResponse.Data.Image, captchaResponse.Data.Kod ?? string.Empty);
+                    //SaveImageToFile("c:\\1", captchaResponse.Data.Id, captchaResponse.Data.Image, captchaResponse.Data.Kod ?? string.Empty);
 
 
                     if (!string.IsNullOrEmpty(captchaResponse.Data.Kod) && captchaResponse.Data.Kod.Length == 4)
@@ -162,7 +162,7 @@ namespace BezKolejki_bot.Services
                         var fourthResult = await ProcessingRezerwacje(thirdResponse.Data.Token, item);
                         if (fourthResult?.ErrorMessage != null)
                         {
-                            await _telegramBotService.SendTextMessage(5993130676, $"{code} fourthResult {clients[clientIndex].Email}\n{fourthResult?.ErrorMessage}");
+                            await _telegramBotService.SendAdminTextMessage($"{code} fourthResult {clients[clientIndex].Email}\n{fourthResult?.ErrorMessage}");
                             continue;
                         }
 
@@ -180,12 +180,12 @@ namespace BezKolejki_bot.Services
 
                         if (fiveResult.ErrorMessage != null)
                         {
-                            await _telegramBotService.SendTextMessage(5993130676, $"{code} fiveResult {clients[clientIndex].Email}\n{fiveResult.ErrorMessage}");
+                            await _telegramBotService.SendAdminTextMessage($"{code} fiveResult {clients[clientIndex].Email}\n{fiveResult.ErrorMessage}");
                         }
 
                         if (fiveResult != null && fiveResult.Data != null && fiveResult.Data.Wynik == "zapisano")
                         {
-                            var pdfPath = Path.Combine("c:\\1\\M", $"{fiveResult.Data.Guid}.pdf");
+                            var pdfPath = Path.Combine("c:\\1", $"{fiveResult.Data.Guid}.pdf");
 
                             await DownloadPdfAsync(fiveResult.Data.Guid, pdfPath);
                             var message = $"{code} "+
@@ -199,13 +199,13 @@ namespace BezKolejki_bot.Services
                             clients[clientIndex].DateRegistration = DateTime.Now;
                             clients[clientIndex].IsRegistered = true;
                             clients[clientIndex].IsActive = false;
-                            await _telegramBotService.SendTextMessage(5993130676, $"{clients[clientIndex].Email}\n{message}");
+                            await _telegramBotService.SendAdminTextMessage($"{clients[clientIndex].Email}\n{message}");
                             await _clientService.SaveAsync(clients[clientIndex]);
                         }
                         else
                         {
                             var message = $"{code}. {clients[clientIndex].Email} \nReg is fail: {fiveResult?.Data?.Wynik}";
-                            await _telegramBotService.SendTextMessage(5993130676, message);
+                            await _telegramBotService.SendAdminTextMessage(message);
                             _logger.LogWarning(message);
                         }
                         clientIndex ++;
@@ -335,7 +335,7 @@ namespace BezKolejki_bot.Services
                 hasHeader: true
             );
 
-            // Предобработка изображений
+            // Загружаем данные в список для модификации
             var enumerableData = _mlContext.Data.CreateEnumerable<CaptchaData>(data, reuseRowObject: false).ToList();
             foreach (var item in enumerableData)
             {
@@ -355,14 +355,18 @@ namespace BezKolejki_bot.Services
                     });
 
                     string processedImagePath = Path.Combine(directoryPatch, $"processed_{Path.GetFileName(item.ImagePath)}");
-                    preprocessedImage.Save(processedImagePath);
+                    // Можно использовать SaveAsync, если требуется асинхронность
+                    await preprocessedImage.SaveAsync(processedImagePath);
 
-                    item.ImagePath = processedImagePath; // Обновите путь к изображению
+                    // Обновляем путь к изображению в объекте
+                    item.ImagePath = processedImagePath;
                 }
             }
 
-            // Разделение данных на обучающую и тестовую выборки
-            var splitData = _mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+            // Создаем новый IDataView из обновленного списка
+            var updatedData = _mlContext.Data.LoadFromEnumerable(enumerableData);
+            // Разделяем данные на обучающую и тестовую выборки
+            var splitData = _mlContext.Data.TrainTestSplit(updatedData, testFraction: 0.2);
 
             _logger.LogInformation("Creating pipeline...");
             var pipeline = _mlContext.Transforms.Conversion.MapValueToKey("Label")
@@ -373,8 +377,8 @@ namespace BezKolejki_bot.Services
                     labelColumnName: "Label",
                     featureColumnName: "Image",
                     enforceNonNegativity: false,
-                    l1Regularization: (float)0.1,
-                    l2Regularization: (float)0.5
+                    l1Regularization: 0.1f,
+                    l2Regularization: 0.5f
                 ))
                 .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
 
@@ -386,15 +390,15 @@ namespace BezKolejki_bot.Services
             var metrics = _mlContext.MulticlassClassification.Evaluate(predictions);
 
             var message =
-            $"Model evaluation metrics:\n" +
-            $"Accuracy: {metrics.MacroAccuracy:P2}\n" +
-            $"Log Loss: {metrics.LogLoss}\n" +
-            $"Confusion Matrix: {metrics.ConfusionMatrix.GetFormattedConfusionTable()}";
-            await _telegramBotService.SendTextMessage(5993130676, $"{message}");
+                $"Model evaluation metrics:\n" +
+                $"Accuracy: {metrics.MacroAccuracy:P2}\n" +
+                $"Log Loss: {metrics.LogLoss}\n" +
+                $"Confusion Matrix: {metrics.ConfusionMatrix.GetFormattedConfusionTable()}";
+            await _telegramBotService.SendAdminTextMessage($"{message}");
 
             string modelPath = Path.Combine(directoryPatch, "CaptchaModel.zip");
             _logger.LogInformation("Saving model to: {ModelPath}", modelPath);
-            await Task.Run(() => _mlContext.Model.Save(model, data.Schema, modelPath));
+            await Task.Run(() => _mlContext.Model.Save(model, updatedData.Schema, modelPath));
 
             if (!File.Exists(modelPath))
             {
@@ -403,6 +407,7 @@ namespace BezKolejki_bot.Services
 
             _logger.LogInformation("Model saved successfully.");
         }
+
 
         public async Task<ApiResult<FirstPostRequestModel?>> FirstPostRequest(string url)
         {
