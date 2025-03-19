@@ -27,6 +27,10 @@ namespace BezKolejki_bot.Services
             {
                 return new SiteProcessorResult(_serviceProvider.GetRequiredService<GdanskPostRequestProcessor>(), "/Gdansk01");
             }
+            else if (url.Contains("https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/"))
+            {
+                return new SiteProcessorResult(_serviceProvider.GetRequiredService<GdanskQmaticPostRequestProcessor>(), "/Gdansk02");
+            }
             else if (url.Contains("https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/198/pl")) 
             {
                 return new SiteProcessorResult(_serviceProvider.GetRequiredService<GdanskPostRequestProcessor>(), "/Slupsk01");

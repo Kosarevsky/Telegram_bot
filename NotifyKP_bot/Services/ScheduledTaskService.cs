@@ -54,6 +54,7 @@ namespace BezKolejki_bot.Services
                         "https://bezkolejki.eu/puw_rzeszow2",
                         "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php",
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/pl", //Gdansk01
+                        "https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/appointmentProfiles/", //Gdansk02
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/198/pl", //slupsk01
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/202/pl", //slupsk02
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/199/pl", //slupsk03

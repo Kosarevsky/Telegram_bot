@@ -43,7 +43,17 @@
                 Url = "https://kolejka.gdansk.uw.gov.pl/branch/5",
                 CodeMapping = new Dictionary<string, string>
                 {
-                    { "Zezwolenie na pobyt (stały, czasowy), rezydenta, wymiana karty, dokumenty dla cudzoziemców", "/Gdansk01" }
+                    { "Zezwolenie na pobyt (stały, czasowy), rezydenta, wymiana karty, dokumenty dla cudzoziemców", "/Gdansk01" },
+                }
+            },
+            new SiteMapping
+            {
+                SiteIdentifier = "GdanskQmatic",
+                SiteName = "POMORSKI URZĄD WOJEWÓDZKI W GDAŃSKU Qmatic",
+                Url = "https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/",
+                CodeMapping = new Dictionary<string, string>
+                {
+                    { "Składanie wniosków i dokumentacji do wniosków już złożonych w sprawie obywatelstwa polskiego", "/Gdansk02" }
                 }
             },
             new SiteMapping

@@ -80,7 +80,7 @@ namespace BezKolejki_bot.Services
                                         {
                                             var client = clients[clientIndex];
                                             var RegistrationDocumentStartDate = client.RegistrationDocumentStartDate;
-                                            if (parsedDate > RegistrationDocumentStartDate)
+                                            if (parsedDate >= RegistrationDocumentStartDate)
                                             {
                                                 var jsonPayload = CreateJsonPayload(SedcoBranchID, SedcoServiceID, BranchID, ServiceID, reformattedDate, time.time, client);
                                                 var result = await ProcessRegistration(jsonPayload, client);
@@ -133,7 +133,6 @@ namespace BezKolejki_bot.Services
                         }
                     }
                 };
-                _telegramBotService.SendAdminTextMessage($"создал POST на регу. \n{client?.Email} \n{JsonConvert.SerializeObject(obj)}");
             };
 
 
@@ -161,34 +160,6 @@ namespace BezKolejki_bot.Services
 
             if (result != null)
             {
-                if (result?.RESPONSE == null)
-                {
-                    await _telegramBotService.SendAdminTextMessage($"result.RESPONSE=null");
-                }
-                else
-                {
-                    if (result?.RESPONSE.TakeAppointmentResult == null)
-                    {
-                        await _telegramBotService.SendAdminTextMessage($"result.RESPONSE.TakeAppointmentResult=null");
-                    }
-                    else
-                    {
-                        if (result?.RESPONSE.TakeAppointmentResult.Code == null)
-                        {
-                            await _telegramBotService.SendAdminTextMessage($"result.RESPONSE.TakeAppointmentResult.code=null");
-                        }
-                        else
-                        {
-                            if (result.RESPONSE.TakeAppointmentResult.Description == null)
-                            {
-                                await _telegramBotService.SendAdminTextMessage($"result.RESPONSE.TakeAppointmentResult.code=null");
-                            }
-                        }
-
-                    }
-                }
-
-
                 var text = $"{result?.RESPONSE?.TakeAppointmentResult.Code}" +
                     $"{result?.RESPONSE?.TakeAppointmentResult.Description}";
                 await _telegramBotService.SendAdminTextMessage($"description {client.Email}\n{text}");
@@ -221,14 +192,10 @@ namespace BezKolejki_bot.Services
 
         private async Task<T?> SendPostRequest<T>(GdanskAppointmentRequestWebModel jsonPayload) where T: class
         {
-            await _telegramBotService.SendAdminTextMessage($"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonPayload)}");
-
             var client = _httpClient.CreateClient();
             var formData = new MultipartFormDataContent();
             var jsonString = JsonConvert.SerializeObject(jsonPayload, _jsonSerializerSettings);
-            await _telegramBotService.SendAdminTextMessage($"5Отправил POST на регу. \n{JsonConvert.SerializeObject(jsonString)}");
 
-            //formData.Add(new StringContent(jsonString), "JSONForm");
             formData.Add(new StringContent(jsonString, Encoding.UTF8, "application/json"), "JSONForm");
 
             var response = await client.PostAsync("https://kolejka.gdansk.uw.gov.pl/admin/API/take_appointment", formData);

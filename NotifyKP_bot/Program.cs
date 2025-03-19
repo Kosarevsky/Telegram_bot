@@ -71,6 +71,7 @@ namespace BezKolejki_bot
                     services.AddTransient<BrowserSiteProcessor>(); 
                     services.AddTransient<OlsztynPostRequestProcessor>(); 
                     services.AddTransient<GdanskPostRequestProcessor>();
+                    services.AddTransient<GdanskQmaticPostRequestProcessor>();
                     services.AddTransient<MoskwaKpPostRequestProcessor>();
 
                     services.AddTransient<ISiteProcessorFactory, SiteProcessorFactory>();

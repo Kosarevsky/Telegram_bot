@@ -149,7 +149,8 @@ namespace Services.Services
                     case "Gdansk":
                         var questionKeyboardGdansk = new InlineKeyboardMarkup(new[]
                         {
-                            new [] { InlineKeyboardButton.WithCallbackData("Zezwolenie na pobyt (stały, czasowy), rezydenta, wymiana karty, dokumenty dla cudzoziemców", "/Gdansk01") }
+                            new [] { InlineKeyboardButton.WithCallbackData("Zezwolenie na pobyt (stały, czasowy), rezydenta, wymiana karty, dokumenty dla cudzoziemców", "/Gdansk01") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Składanie wniosków i dokumentacji do wniosków już złożonych w sprawie obywatelstwa polskiego", "/Gdansk02") },
                         });
 
                         await SendTextMessage(
@@ -277,6 +278,7 @@ namespace Services.Services
                     case "/Rzeszow04":
                     case "/Rzeszow06":
                     case "/Gdansk01":
+                    case "/Gdansk02":
                     case "/OlsztynKP":                  
                     case "/Slupsk01":
                     case "/Slupsk02":
