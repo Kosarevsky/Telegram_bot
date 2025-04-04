@@ -9,6 +9,7 @@ using Services.Models;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using OpenQA.Selenium.Interactions;
+using System.Globalization;
 
 
 namespace BezKolejki_bot.Services
@@ -109,7 +110,7 @@ namespace BezKolejki_bot.Services
                 wait.Until(d => d.FindElement(By.Id("Operacja2")).FindElements(By.TagName("button")).Count > 0);
 
                 var listOperacja2 = wait.Until(d => d.FindElement(By.Id("Operacja2")));
-                var buttonTexts = listOperacja2.FindElements(By.TagName("button")).Select(b => b.Text).ToList();
+                var buttonTexts = listOperacja2.FindElements(By.ClassName("operation-button")).Select(b => b.Text).ToList();
                 int index = 0;
                 var options = driver.Manage().Network;
                 await options.StartMonitoring();
@@ -145,17 +146,32 @@ namespace BezKolejki_bot.Services
                                 try
                                 {
                                     var settings = new JsonSerializerSettings { Error = (sender, args) => { args.ErrorContext.Handled = true; } };
-                                    var data = JsonConvert.DeserializeObject<BezKolejkiJsonModel>(responseBody, settings);
+                                    var result = JsonConvert.DeserializeObject<BezKolejkiJsonModel>(responseBody, settings);
 
-                                    if (data != null)
+                                    if (result != null)
                                     {
-                                        var code = CodeMapping.GetCodeByOperationId(data.operationId);
+                                        var code = CodeMapping.GetCodeByOperationId(result.operationId);
                                         if (string.IsNullOrEmpty(code))
                                         {
-                                            _logger.LogWarning($"Error mapping code {data.operationId}");
+                                            _logger.LogWarning($"Error mapping code {result.operationId}");
                                         }
 
-                                        dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, data.availableDays, code);
+
+                                        var dates = new List<DateTime>();
+                                        foreach (var date in result.availableDays)
+                                        {
+                                            if (DateTime.TryParseExact(date, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate))
+                                            {
+                                                dates.Add(parsedDate);
+                                            }
+                                            else
+                                            {
+                                                _logger.LogWarning($"{code}. error parsing date {date}");
+                                            }
+                                        }
+
+
+                                        dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates, code);
                                     }
                                 }
                                 catch (JsonSerializationException ex)
@@ -193,8 +209,11 @@ namespace BezKolejki_bot.Services
                                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                                 await Task.Delay(2500);
 
-                                await clickWizardIcon(driver);
-                                await Task.Delay(2100);
+                                if (index == 0)
+                                { 
+                                   // await clickWizardIcon(driver); 
+                                    await Task.Delay(2100);
+                                }
                                 cancellationToken.ThrowIfCancellationRequested();
                                 await ClickButton(driver,  button);
 
@@ -207,8 +226,8 @@ namespace BezKolejki_bot.Services
                                 });
 
                                 await ErrorCaptchaAsync(driver, buttonText, cancellationToken);
-                                index++;
-                                success = true;
+                                //index++;
+                                //success = true;
                             }
                             catch (StaleElementReferenceException ex)
                             {
@@ -319,7 +338,7 @@ namespace BezKolejki_bot.Services
                         _logger.LogInformation($"{prefix}. Re-clicking button after captcha refresh.");
                         ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", button);
                         await Task.Delay(2500);
-                        await clickWizardIcon(driver);
+                        //await clickWizardIcon(driver);
                         await Task.Delay(4500);
                         await ClickButton(driver, button);
                         await Task.Delay(4000);

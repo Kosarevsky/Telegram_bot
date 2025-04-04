@@ -12,8 +12,14 @@
     "BrowserIsVisible": false
   },
   "OtherSettings": {
-    "DonateUrl": "https://buymeacoffee.com/xxxxx"
+    "DonateUrl": "https://buymeacoffee.com/xxxxx",
+    "TimeOutPostGetRequest": 90
   },
+  {
+    "ProxySettings": {
+      "Proxies": []
+    }
+  }
   "Logging": {
     "LogLevel": {
       "Default": "Information",

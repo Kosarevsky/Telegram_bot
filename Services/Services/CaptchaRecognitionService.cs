@@ -22,7 +22,16 @@ namespace Services.Services
         {
             _logger = logger;
             _modelPath = @"c:\1\ok2\CaptchaModel.zip";
-            _tessDataPath = @"d:\Work\dev\Telegram_bot\tessdata";
+            var localTessDataPath = Path.Combine(Directory.GetCurrentDirectory(), "tessdata");
+            var trainedFile = Path.Combine(localTessDataPath, "eng.traineddata");
+            if (Directory.Exists(localTessDataPath) && File.Exists(trainedFile))
+            {
+                _tessDataPath = localTessDataPath;
+            }
+            else
+            {
+                _tessDataPath = @"d:\Work\dev\Telegram_bot\tessdata";
+            }
             _mlContext = new MLContext();
         }
 
@@ -33,9 +42,9 @@ namespace Services.Services
             using (var ms = new MemoryStream(imageBytes))
             {
                 Image<Rgba32> preprocessedImage = PreprocessImage(ms);
-                recognizedText =  RecognizeCaptcha(preprocessedImage, _tessDataPath);
+                recognizedText = RecognizeCaptcha(preprocessedImage, _tessDataPath);
                 _logger.LogInformation("Распознанный текст: " + recognizedText);
-                return recognizedText;
+                return await Task.FromResult(recognizedText);
             }
         }
         static Image<Rgba32> PreprocessImage(Stream imageStream)

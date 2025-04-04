@@ -82,26 +82,29 @@ namespace Services.Services
             var url = CodeMapping.GetUrlByCode(code);
 
             var message = $"{siteIdentifier}. {truncatedText}\n";
+            var sortedDates = dates.OrderBy(d => d).ToList();
+            var sortedNewDates = newDates.OrderBy(d => d).ToList();
+            var sortedMissingDates = missingDates.OrderBy(d => d).ToList();
 
-            if (dates.SequenceEqual(newDates))
+            if (sortedDates.SequenceEqual(sortedNewDates))
             {
-                return message + (dates.Any()
-                    ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}\n{url}"
+                return message + (sortedDates.Any()
+                    ? $"Доступны даты: {string.Join(", ", sortedDates.Select(d => d.ToShortDateString()))}\n{url}"
                     : "Нет дат.");
             }
 
-            if (newDates.Any())
+            if (sortedNewDates.Any())
             {
-                message += $"Новая дата: {string.Join(", ", newDates.Select(d => d.ToShortDateString()))}\n";
+                message += $"Новая дата: {string.Join(", ", sortedNewDates.Select(d => d.ToShortDateString()))}\n";
             }
 
-            if (missingDates.Any())
+            if (sortedMissingDates.Any())
             {
-                message += $"Разобрали дату: {string.Join(", ", missingDates.Select(d => d.ToShortDateString()))}\n";
+                message += $"Разобрали дату: {string.Join(", ", sortedMissingDates.Select(d => d.ToShortDateString()))}\n";
             }
 
-            message += dates.Any()
-                ? $"Доступны даты: {string.Join(", ", dates.Select(d => d.ToShortDateString()))}\n{url}"
+            message += sortedDates.Any()
+                ? $"Доступны даты: {string.Join(", ", sortedDates.Select(d => d.ToShortDateString()))}\n{url}"
                 : "Нет дат.";
 
             return message;

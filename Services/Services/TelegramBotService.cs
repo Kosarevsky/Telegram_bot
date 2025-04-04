@@ -39,7 +39,7 @@ namespace Services.Services
             _eventPublisher = eventPublisher;
             _bezKolejkiService = bezKolejkiService;
             _lang = lang;
-            _donateUrl = configuration["OtherSettings:DonateUrl"];
+            _donateUrl = configuration["OtherSettings:DonateUrl"] ?? string.Empty;
             try
             {
                 _resetTimer = new Timer(_ => ResetMessageCounts(), null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
@@ -48,12 +48,8 @@ namespace Services.Services
             {
                 _logger.LogError($"Failed to initialize timer: {ex.Message}");
             }
-            if (long.TryParse(configuration["Telegram:AdminTelegramId"], out long resParse))
-            {
-                _adminTlgId = resParse;
-            }
 
-
+            _adminTlgId = long.TryParse(configuration["Telegram:AdminTelegramId"], out long resParse) ? resParse : 0;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -183,12 +179,12 @@ namespace Services.Services
                     case "Opole":
                         var questionKeyboardOpole = new InlineKeyboardMarkup(new[]
                         {
-                            new [] { InlineKeyboardButton.WithCallbackData("Wydawanie dokumentów (karty pobytu, zaproszenia", "/Opole01") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Wydawanie dokumentów (karty pobytu, zaproszenia)", "/Opole01") },
                             new [] { InlineKeyboardButton.WithCallbackData("Złożenie wniosku: przez ob. UE i członków ich rodzin/na zaproszenie/o wymianę karty pobytu (w przypadku: zmiany danych umieszczonych w posiadanej karcie pobytu, zmiany wizerunku twarzy, utraty, uszkodzenia) oraz uzupełnianie braków formalnych w tych sprawach", "/Opole02") },
-                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o przyznanie Karty Polaka", "/Opole03") },
-                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór", "/Opole04") }
+                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka – złożenie wniosku o przyznanie Karty Polaka dla dziecka (gdy co najmniej jeden z rodziców posiada/posiadał Kartę Polaka)", "/Opole03") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Karta Polaka – złożenie wniosku o przedłużenie ważności Karty Polaka / zmiana danych posiadacza / wydanie duplikatu", "/Opole04") },
+                            new [] { InlineKeyboardButton.WithCallbackData("Odbiór Karty Polaka", "/Opole05") }
                         });
-
                         await SendTextMessage(
                             userId,
                             "Вы выбрали город Opole. Пожалуйста, выберите операцию:",
@@ -198,7 +194,7 @@ namespace Services.Services
                     case "Rzeszow":
                         var questionKeyboardRzeszow = new InlineKeyboardMarkup(new[]
                         {
-                            new [] { InlineKeyboardButton.WithCallbackData("1. Odbiór paszportów)", "/Rzeszow01") },
+                            new [] { InlineKeyboardButton.WithCallbackData("1. Odbiór paszportów", "/Rzeszow01") },
                             new [] { InlineKeyboardButton.WithCallbackData("4. Składanie wniosków w sprawach obywatelstwa polskiego (nadanie, zrzeczenie, uznanie, potwierdzenie posiadania) - pokój 326, III piętro", "/Rzeszow04") },
                             new [] { InlineKeyboardButton.WithCallbackData("6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06") }
                         });
@@ -274,6 +270,7 @@ namespace Services.Services
                     case "/Opole02":
                     case "/Opole03":
                     case "/Opole04":
+                    case "/Opole05":
                     case "/Rzeszow01":
                     case "/Rzeszow04":
                     case "/Rzeszow06":
@@ -358,7 +355,7 @@ namespace Services.Services
                 }
                 else
                 {
-                    _logger.LogInformation($"Unknown command {message.Text}");
+                    _logger.LogInformation($"Unknown command {message?.Text}");
                 }
             }
         }
@@ -366,7 +363,7 @@ namespace Services.Services
         private async Task ProcessSubscriptionSelection(CallbackQuery callbackQuery)
         {
             var telegramUserId = callbackQuery.Message?.Chat.Id ?? 0;
-            var selectedButton = callbackQuery.Data;
+            var selectedButton = callbackQuery.Data ?? string.Empty;
             var message = $"{CodeMapping.GetSiteIdentifierByCode(selectedButton)}. {CodeMapping.GetKeyByCode(selectedButton)}";
             if (!string.IsNullOrEmpty(message))
             {
@@ -439,7 +436,7 @@ namespace Services.Services
                         var subscriptionName = $"{CodeMapping.GetSiteIdentifierByCode(el.SubscriptionCode)}. {CodeMapping.GetKeyByCode(el.SubscriptionCode)}";
                         if (!string.IsNullOrEmpty(subscriptionName))
                         {
-                            listSubscription.Add($"{listSubscription.Count+1}. {TruncateText(subscriptionName, 67)}");
+                            listSubscription.Add($"{listSubscription.Count+1}. {TruncateText(subscriptionName, 77)}");
                         }
                     }
 
@@ -526,7 +523,7 @@ namespace Services.Services
             return Task.CompletedTask;
         }
 
-        public async Task SendTextMessage(long chatId, string messageText, ReplyMarkup replyMarkup = null, CancellationToken cancellationToken = default)
+        public async Task SendTextMessage(long chatId, string messageText, ReplyMarkup? replyMarkup = null, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -557,7 +554,7 @@ namespace Services.Services
                 _logger.LogError($"An error occurred while sending message: {ex.Message}");
             }
         }
-        public async Task SendAdminTextMessage(string messageText, ReplyMarkup replyMarkup = null, CancellationToken cancellationToken = default)
+        public async Task SendAdminTextMessage(string messageText, ReplyMarkup? replyMarkup = null, CancellationToken cancellationToken = default)
         {
             await SendTextMessage(_adminTlgId, messageText, replyMarkup, cancellationToken);
         }

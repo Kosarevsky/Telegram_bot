@@ -35,7 +35,7 @@ namespace BezKolejki_bot.Services
             _logger.LogInformation($"{code} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
 
             var client = _httpClient.CreateClient();
-            ConcurrentBag<string> dates = new ConcurrentBag<string>();
+            ConcurrentBag<DateTime> dates = new ConcurrentBag<DateTime>();
             bool dataSaved = false;
             try
             {
@@ -65,7 +65,7 @@ namespace BezKolejki_bot.Services
                         var isAvailableDate = await GetAvailableTimeByDate(date, client);
                         if (isAvailableDate)
                         {
-                            dates.Add(date.ToString());
+                            dates.Add(date.ToDateTime(TimeOnly.MinValue));
                         }
                         await Task.Delay(500);
                     }

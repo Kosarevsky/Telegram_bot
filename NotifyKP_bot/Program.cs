@@ -11,7 +11,7 @@ using BezKolejki_bot.Interfaces;
 using BezKolejki_bot.Services;
 using Telegram.Bot;
 using Microsoft.Extensions.Logging;
-
+using System.Globalization;
 
 namespace BezKolejki_bot
 {
@@ -19,6 +19,10 @@ namespace BezKolejki_bot
     {
         public static async Task Main(string[] args)
         {
+            var culture = new CultureInfo("ru-RU");
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+
             var host = CreateHostBuilder(args).Build();
 
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
@@ -68,15 +72,15 @@ namespace BezKolejki_bot
 
 
                     services.AddTransient<IBezKolejkiService, BezKolejkiService>();
-                    services.AddTransient<BrowserSiteProcessor>(); 
-                    services.AddTransient<OlsztynPostRequestProcessor>(); 
+                    services.AddTransient<BrowserSiteProcessor>();
+                    services.AddTransient<OlsztynPostRequestProcessor>();
                     services.AddTransient<GdanskPostRequestProcessor>();
                     services.AddTransient<GdanskQmaticPostRequestProcessor>();
                     services.AddTransient<MoskwaKpPostRequestProcessor>();
 
                     services.AddTransient<ISiteProcessorFactory, SiteProcessorFactory>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
-;     
+                    ;
                     services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IClientService, ClientService>();
                     services.AddHostedService<ScheduledTaskService>();
@@ -87,6 +91,22 @@ namespace BezKolejki_bot
                     services.AddSingleton<ITelegramBotService, TelegramBotService>();
                     services.AddTransient<ICaptchaRecognitionService, CaptchaRecognitionService>();
                     services.AddTransient<ILocalizationService, LocalizationService>();
+                    services.AddTransient<IHttpService, HttpService>();
+                    services.AddSingleton<IProxyProvider, RandomProxyProvider>();
+                    services.AddHttpClient("ProxyClient")
+                        .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+                        {
+                            var proxyProvider = serviceProvider.GetRequiredService<IProxyProvider>();
+                            return new HttpClientHandler
+                            {
+                                Proxy = proxyProvider.GetRandomProxy(),
+                                UseProxy = true
+                            };
+                        });
+
+                    services.AddHttpClient("DefaultClient");
+
+                    services.AddTransient<IHttpService, HttpService>();
                 });
     }
 }

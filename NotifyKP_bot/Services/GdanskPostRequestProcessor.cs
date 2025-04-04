@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Services.Interfaces;
 using Services.Models;
-using System.Net.Http.Json;
+using System.Globalization;
 using System.Text;
 
 
@@ -13,16 +13,16 @@ namespace BezKolejki_bot.Services
     public class GdanskPostRequestProcessor : ISiteProcessor
     {
         private readonly ILogger<GdanskPostRequestProcessor> _logger;
-        private readonly IHttpClientFactory _httpClient;
+        private readonly IHttpService _httpService;
         private readonly IBezKolejkiService _bezKolejkiService;
         private readonly ITelegramBotService _telegramBotService;
         private readonly IClientService _clientService;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
 
-        public GdanskPostRequestProcessor(ILogger<GdanskPostRequestProcessor> logger, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService, ITelegramBotService telegramBotService, IClientService clientService)
+        public GdanskPostRequestProcessor(ILogger<GdanskPostRequestProcessor> logger, IHttpService httpService, IBezKolejkiService bezKolejkiService, ITelegramBotService telegramBotService, IClientService clientService)
         {
             _logger = logger;
-            _httpClient = httpClientFactory;
+            _httpService = httpService;
             _bezKolejkiService = bezKolejkiService;
             _telegramBotService = telegramBotService;
             _clientService = clientService;
@@ -33,60 +33,103 @@ namespace BezKolejki_bot.Services
                 Formatting = Formatting.Indented
             };
         }
-        record Error(string Message);
 
         public async Task ProcessSiteAsync(string url, string code)
         {
 
             var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
+            var clients = await _clientService.GetAllAsync(u => u.Code == code && u.IsActive && !u.IsRegistered);
 
-            if (countByActiveUsers <= 0)
+            if (countByActiveUsers <= 0 && clients?.Count == 0)
             {
                 _logger.LogInformation($"{code} count subscribers = 0. skipping....");
                 return;
             }
             _logger.LogInformation($"{code} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
 
-            var resultDates = await GetDatesAsync(url, code);
-            if (resultDates != null)
+            var resultDates = await _httpService.SendGetRequest<GdanskWebModel>(url, useProxy: false);
+            if (resultDates != null && resultDates.Data?.DATES != null)
             {
-                var dates = resultDates.DATES;
+                var dates = new List<DateTime>();
+
+                foreach (var date in resultDates.Data.DATES)
+                {
+                    if (DateTime.TryParseExact(date, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate))
+                    {
+                        dates.Add(parsedDate);
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"{code}. error parsing date {date}");
+                    }
+                }
+
+
                 if (dates != null)
                 {
                     bool dataSaved = false;
-                    dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
-                    if (dates.Count > 0) { 
+                    dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates, code);
+                    if (dates.Count > 0)
+                    {
                         if (code == "/Gdansk01")
-                    await _telegramBotService.SendAdminTextMessage($"есть дата.{DateTime.Now.ToString()}");
+                            await _telegramBotService.SendAdminTextMessage($"есть дата.{DateTime.Now.ToString()}");
 
-
-                    var clients = await _clientService.GetAllAsync(u => u.Code == code && u.IsActive && !u.IsRegistered);
-
-                        if (clients != null && clients.Count > 0)
+                        if (clients?.Count > 0)
                         {
                             var (SedcoBranchID, SedcoServiceID, BranchID, ServiceID) = GetServiceIdsByCode(code);
                             var clientIndex = 0;
+                            //DateTime.TryParseExact("13/06/2025", "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date);
                             foreach (var date in dates)
-                            //var date = "17/04/2025";
                             {
-                                var parsedDate = DateOnly.ParseExact(date, "dd/MM/yyyy", null);
-                                string reformattedDate = parsedDate.ToString("yyyy-MM-dd");
-                                var availableTime = await GetTimeAsync(reformattedDate, BranchID, ServiceID);
-                                if (availableTime != null)
+                                string reformattedDate = date.ToString("yyyy-MM-dd");
+
+                                if (clientIndex >= clients?.Count)
                                 {
-                                    foreach (var time in availableTime.TIMES)
+                                    _logger.LogInformation("No more clients left, skipping remaining dates.");
+                                    break;
+                                }
+
+                                var urlTime = $"https://kolejka.gdansk.uw.gov.pl/admin/API/time/{BranchID}/{ServiceID}/{reformattedDate}";
+                                var availableTime = await _httpService.SendGetRequest<GdanskTimeWebModel>(urlTime);
+
+                                if (availableTime != null && availableTime.Data != null)
+                                {
+                                    var timeSlots = string.Join(", ", availableTime.Data.TIMES.Select(x => x.time));
+                                    var message = $"Available time slots for {reformattedDate}: {timeSlots}";
+                                    await _telegramBotService.SendAdminTextMessage(message);
+
+                                    foreach (var time in availableTime.Data.TIMES)
                                     {
-                                        if (clientIndex < clients.Count)
+                                        if (clientIndex < clients?.Count)
                                         {
                                             var client = clients[clientIndex];
-                                            var RegistrationDocumentStartDate = client.RegistrationDocumentStartDate;
-                                            if (parsedDate >= RegistrationDocumentStartDate)
+
+                                            DateTime ignoreDate = DateTime.ParseExact("04/04/2025", "dd/MM/yyyy", CultureInfo.InvariantCulture);
+                                            DateTime startDate = DateTime.ParseExact("12/04/2025", "dd/MM/yyyy", CultureInfo.InvariantCulture);
+                                            DateTime endDate = DateTime.ParseExact("27/04/2025", "dd/MM/yyyy", CultureInfo.InvariantCulture);
+
+                                            bool isRevina = string.Equals(client.Surname, "REVIN", StringComparison.OrdinalIgnoreCase) ||
+                                                           string.Equals(client.Surname, "REVINA", StringComparison.OrdinalIgnoreCase);
+
+                                            bool isAllowedForRevina = isRevina && (date >= startDate && date <= endDate); // REVIN/REVINA только 12–27 апреля
+                                            bool isAllowedForOthers = !isRevina && date > DateTime.Now && date >= client.RegistrationDocumentStartDate.ToDateTime(TimeOnly.MinValue); // Остальные — стандартные условия
+
+                                            if (isAllowedForRevina || isAllowedForOthers)
                                             {
                                                 var jsonPayload = CreateJsonPayload(SedcoBranchID, SedcoServiceID, BranchID, ServiceID, reformattedDate, time.time, client);
                                                 var result = await ProcessRegistration(jsonPayload, client);
-                                            }
 
-                                            clientIndex++;
+
+                                                if (result?.Data?.RESPONSE?.TakeAppointmentResult?.Code == 0)
+                                                {
+                                                    _logger.LogInformation($"Registration successful for {client.Surname} at {time.time}.");
+                                                    clientIndex++;
+                                                }
+                                                else
+                                                {
+                                                    _logger.LogWarning($"Registration failed for {client.Surname} at {time.time}. Trying next slot.");
+                                                }
+                                            }
                                         }
                                         else
                                         {
@@ -101,7 +144,7 @@ namespace BezKolejki_bot.Services
                 }
                 else
                 {
-                    _logger.LogInformation($"No available dates. Message: {resultDates.MSG}");
+                    _logger.LogInformation($"No available dates. Message: {resultDates.Data.MSG}");
                 }
             }
             else
@@ -113,7 +156,7 @@ namespace BezKolejki_bot.Services
         private GdanskAppointmentRequestWebModel CreateJsonPayload(int sedcoBranchID, int sedcoServiceID, int branchID, int serviceID, string date, string time, ClientModel client)
         {
             var obj = new GdanskAppointmentRequestWebModel();
-            if (client != null && sedcoBranchID > 0 && sedcoServiceID > 0 & branchID > 0 & serviceID > 0 )
+            if (client != null && sedcoBranchID > 0 && sedcoServiceID > 0 & branchID > 0 & serviceID > 0)
             {
                 obj = new GdanskAppointmentRequestWebModel
                 {
@@ -133,7 +176,8 @@ namespace BezKolejki_bot.Services
                         }
                     }
                 };
-            };
+            }
+            ;
 
 
             return obj;
@@ -149,136 +193,57 @@ namespace BezKolejki_bot.Services
             };
         }
 
-        private async Task<GdanskTakeAppointmentWebModel?> ProcessRegistration(GdanskAppointmentRequestWebModel jsonPayload, ClientModel client)
+        private async Task<ApiResult<GdanskTakeAppointmentWebModel>> ProcessRegistration(GdanskAppointmentRequestWebModel jsonPayload, ClientModel client)
         {
-            var result = await SendPostRequest<GdanskTakeAppointmentWebModel>(jsonPayload);
+
+            await _telegramBotService.SendAdminTextMessage($"Начало регистрации \n{client.Email} \n{JsonConvert.SerializeObject(jsonPayload)}");
+            var formData = new MultipartFormDataContent();
+            var jsonString = JsonConvert.SerializeObject(jsonPayload, _jsonSerializerSettings);
+
+            formData.Add(new StringContent(jsonString, Encoding.UTF8, "application/json"), "JSONForm");
+            var url = "https://kolejka.gdansk.uw.gov.pl/admin/API/take_appointment";
+
+            var result = await _httpService.SendMultipartPostRequest<GdanskTakeAppointmentWebModel>(url, formData, useProxy: true);
 
             var messText = result != null
                 ? JsonConvert.SerializeObject(result, _jsonSerializerSettings)
                 : "result is null";
             await _telegramBotService.SendAdminTextMessage($"2Отправил POST на регу. \n{client.Email} \n{messText} \n{JsonConvert.SerializeObject(jsonPayload)}");
 
-            if (result != null)
+            if (result != null && result.Data != null)
             {
-                var text = $"{result?.RESPONSE?.TakeAppointmentResult.Code}" +
-                    $"{result?.RESPONSE?.TakeAppointmentResult.Description}";
+                var response = result.Data.RESPONSE;
+                var text = $"{response.TakeAppointmentResult.Code}" +
+                    $"{response.TakeAppointmentResult.Description}";
                 await _telegramBotService.SendAdminTextMessage($"description {client.Email}\n{text}");
 
-
-                if (result?.RESPONSE.TakeAppointmentResult.Code == 0 && result.RESPONSE.TakeAppointmentResult.Description == "Success")
+                if (response?.TakeAppointmentResult.Code == 0 && response.TakeAppointmentResult.Description == "Success")
                 {
-                    text = $"Twój bilet, to: {result.RESPONSE.AppointmentTicketInfo.TicketNumber}" +
-                        $"\nIdentyfikator wizyty :{result.RESPONSE.AppointmentTicketInfo.Code} " +
-                        $"\n{result.RESPONSE.AppointmentTicketInfo.AppointmentDay} " +
-                        $"{result.RESPONSE.AppointmentTicketInfo.AppointmentTime} " +
-                        $"\n{result.RESPONSE.AppointmentTicketInfo.Service.Name} ";
+                    text = $"\nTwój bilet, to: {response.AppointmentTicketInfo.TicketNumber}" +
+                        $"\nIdentyfikator wizyty :{response.AppointmentTicketInfo.Code} " +
+                        $"\n{response.AppointmentTicketInfo.AppointmentDay} " +
+                        $"{response.AppointmentTicketInfo.AppointmentTime} " +
+                        $"\n{response.AppointmentTicketInfo.Service.Name} ";
                     client.Result = text;
                     client.DateRegistration = DateTime.Now;
                     client.IsRegistered = true;
                     client.IsActive = false;
                     var description = client.Description ?? string.Empty;
-                    await _telegramBotService.SendAdminTextMessage($"{client.Email}\n{text}\n{description}");
+                    await _telegramBotService.SendAdminTextMessage($"{client.Surname} {client.Name}\n{client.Email}\n{text}\n{description}");
                     await _clientService.SaveAsync(client);
+                }
+                else
+                {
+                    await _telegramBotService.SendAdminTextMessage($"error {client.Email}\n{response?.TakeAppointmentResult.Description}\n{response?.TakeAppointmentResult.Code}");
                 }
             }
             else
-            { 
+            {
                 await _telegramBotService.SendAdminTextMessage($"result == null конец реги .{DateTime.Now.ToString()}");
             }
             await _telegramBotService.SendAdminTextMessage($"конец реги .{DateTime.Now.ToString()}");
 
             return result;
-        }
-
-        private async Task<T?> SendPostRequest<T>(GdanskAppointmentRequestWebModel jsonPayload) where T: class
-        {
-            var client = _httpClient.CreateClient();
-            var formData = new MultipartFormDataContent();
-            var jsonString = JsonConvert.SerializeObject(jsonPayload, _jsonSerializerSettings);
-
-            formData.Add(new StringContent(jsonString, Encoding.UTF8, "application/json"), "JSONForm");
-
-            var response = await client.PostAsync("https://kolejka.gdansk.uw.gov.pl/admin/API/take_appointment", formData);
-
-            return await ProcessHttpResponse<T>(response);
-        }
-
-        public async Task<GdanskTimeWebModel?> GetTimeAsync(string date, int BranchID, int ServiceID)
-        {
-            var client = _httpClient.CreateClient();
-            var url = $"https://kolejka.gdansk.uw.gov.pl/admin/API/time/{BranchID}/{ServiceID}/{date}";
-            var response = await SendGetRequest<GdanskTimeWebModel>(url);
-            return response;
-        }
-        public async Task<GdanskWebModel?> GetDatesAsync(string url, string code)
-        {
-            var client = _httpClient.CreateClient();
-
-            try
-            {
-                var response = await client.GetAsync(url);
-                return await ProcessHttpResponse<GdanskWebModel>(response);
-            }
-            catch (HttpRequestException httpEx)
-            {
-                _logger.LogError($"HTTP error occurred while processing URL {url}: {httpEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"An error occurred while processing POST request to {url}: {ex.Message}");
-                throw;
-            }
-            return null;
-        }
-
-
-        private async Task<T?> SendGetRequest<T>(string url) where T : class
-        {
-            var client = _httpClient.CreateClient();
-            try
-            {
-                var response = await client.GetAsync(url);
-                return await ProcessHttpResponse<T>(response);
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogWarning($"An error occurred during the second POST request: {ex.Message}");
-            }
-            return default;
-        }
-
-
-        private async Task<T?> ProcessHttpResponse<T>(HttpResponseMessage response) where T: class
-        {
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                if (string.IsNullOrEmpty(content))
-                {
-                    _logger.LogWarning("HTTP response is empty.");
-                    return null;
-                }
-                try
-                {
-                    return JsonConvert.DeserializeObject<T>(content);
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogError($"Failed to deserialize response: {ex.Message}");
-                    _logger.LogError($"Response content: {content}");
-                }
-            }
-            else
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                var error1 = JsonConvert.DeserializeObject<T>(content);
-                await _telegramBotService.SendAdminTextMessage($" error45 {content}");
-                await _telegramBotService.SendAdminTextMessage($" error55 {error1}");
-
-                var error = await response.Content.ReadFromJsonAsync<Error>();
-                _logger.LogWarning(message: $"HTTP Error {response.StatusCode}: {error?.Message} {error?.ToString()}");
-            }
-            return null;
         }
     }
 }

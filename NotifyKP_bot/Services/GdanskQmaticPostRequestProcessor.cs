@@ -2,31 +2,28 @@
 using BezKolejki_bot.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using OpenQA.Selenium.DevTools.V85.ApplicationCache;
 using Services.Interfaces;
-using Services.Models;
-using System.Net.Http.Json;
-using System.Text;
-
+using static System.Net.WebRequestMethods;
 
 namespace BezKolejki_bot.Services
 {
     public class GdanskQmaticPostRequestProcessor : ISiteProcessor
     {
-        private readonly ILogger<GdanskPostRequestProcessor> _logger;
-        private readonly IHttpClientFactory _httpClient;
+        private readonly ILogger<GdanskQmaticPostRequestProcessor> _logger;
         private readonly IBezKolejkiService _bezKolejkiService;
-        private readonly ITelegramBotService _telegramBotService;
-        private readonly IClientService _clientService;
+        private readonly IHttpService _httpService;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
-        private IEnumerable<object> serviceGroups;
 
-        public GdanskQmaticPostRequestProcessor(ILogger<GdanskPostRequestProcessor> logger, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService, ITelegramBotService telegramBotService, IClientService clientService)
+        public GdanskQmaticPostRequestProcessor(
+            ILogger<GdanskQmaticPostRequestProcessor> logger, 
+            IBezKolejkiService bezKolejkiService,
+            ITelegramBotService telegramBotService,
+            IHttpService httpService)
         {
             _logger = logger;
-            _httpClient = httpClientFactory;
             _bezKolejkiService = bezKolejkiService;
-            _telegramBotService = telegramBotService;
-            _clientService = clientService;
+            _httpService = httpService;
 
             _jsonSerializerSettings = new JsonSerializerSettings
             {
@@ -34,176 +31,147 @@ namespace BezKolejki_bot.Services
                 Formatting = Formatting.Indented
             };
         }
-        record Error(string Message);
-
-        private Task<string?> GetPublicId(List<GdanskQmaticWebModel?> profiles, string searchName)
+        private string? GetBranchPublicId(List<GdanskQmaticWebModel?> profiles, string searchName)
         {
-            var publicId = profiles
-                .SelectMany(g => g.serviceGroups)
+            return profiles
+                .FirstOrDefault(branch => branch?.serviceGroups
+                    .SelectMany(group => group.services)
+                    .Any(service => service.name == searchName) == true)
+                ?.branchPublicId;
+        }
+
+        private GdanskQmaticService? GetUrzand(List<GdanskQmaticWebModel?> profiles, string searchName)
+        {
+            return profiles
+                .SelectMany(g => g?.serviceGroups ?? Enumerable.Empty<GdanskQmaticServiceGroup>())
                 .SelectMany(s => s.services)
-                .Where(service => service.name == searchName)
-                .FirstOrDefault()?.publicId;
-
-            return Task.FromResult(publicId);
+                .FirstOrDefault(service => service.name == searchName);
         }
 
-        private Task<string?> GetBranchPublicId(List<GdanskQmaticWebModel?> profiles, string searchName)
-        {
-            var branchPublicId = profiles
-                .Where(branch => branch.serviceGroups
-                .SelectMany(group => group.services)
-                .Any(service => service.name == searchName)) 
-                .Select(branch => branch.branchPublicId)
-                .FirstOrDefault(); 
-
-            return Task.FromResult(branchPublicId);
-        }
 
         public async Task ProcessSiteAsync(string url, string code)
         {
+            var urlAvailable = "https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/available";
+           // var available = await _httpService.SendGetRequest<List<>>(url);
+
             string searchName = "Składanie wniosków i dokumentacji do wniosków już złożonych w sprawie obywatelstwa polskiego";
+            //string searchName = "Wydział Koordynacji Świadczeń";
             var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
-            var publicId = string.Empty;
-            var branchPublicId = string.Empty;
-            var requestUrl = string.Empty;
-            var profiles = await GetProfilesAsync(url, code);
-            if (profiles != null)
+            var profiles = await _httpService.SendGetRequest<List<GdanskQmaticWebModel?>>(url);
+            if (profiles?.Data == null)
             {
-                publicId = await GetPublicId(profiles, searchName);
-                if (!string.IsNullOrEmpty(publicId))
-                {
-                    branchPublicId = await GetBranchPublicId(profiles, searchName);
-                }
-            }
-            else
-            {
-                _logger.LogWarning("The response content could not be deserialized into GdanskQmaticWebModel.");
+                _logger.LogWarning($"{code}.The response content could not be deserialized into GdanskQmaticWebModel.");
+                return;
             }
 
-            if (!string.IsNullOrEmpty(publicId) && !string.IsNullOrEmpty(branchPublicId))
+            var service = GetUrzand(profiles.Data, searchName);
+            var branchPublicId = GetBranchPublicId(profiles.Data, searchName);
+            if (service?.publicId is null || branchPublicId is null)
             {
-                requestUrl = $"https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/" +
-                   branchPublicId +
-                   "/dates;servicePublicId=" +
-                   publicId +
-                   ";customSlotLength=40";
+                _logger.LogWarning($"{code}. Service or branchPublicId not found.");
+                return;
             }
-            else
+
+            var publicId = service.publicId;
+
+            if (string.IsNullOrEmpty(publicId) || string.IsNullOrEmpty(branchPublicId))
             {
                 _logger.LogWarning("The publicId or branchPublicId is empty.");
+                return;
             }
 
-            if (!string.IsNullOrEmpty(requestUrl))
+            var requestUrl = $"https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/{branchPublicId}/dates;servicePublicId={publicId};customSlotLength={service.duration}";
+            var result = await _httpService.SendGetRequest<List<GdanskQmaticDateWebModel?>>(requestUrl);
+
+            if (result?.Data == null)
             {
-                var dates = await GetDatesAsync(requestUrl);
-                if (dates != null)
+                _logger.LogWarning($"{code}.No dates found.");
+                return;
+            }
+            var dates = result.Data
+                .Where(d => d?.Date != null)
+                .Select(d => d!.Date.ToDateTime(TimeOnly.MinValue))
+                .OrderBy(d => d)
+                .ToList(); ;
+            
+            bool dataSaved = false;
+            dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dates, code);
+
+            if (dates?.Count == 0)
+            {
+                return;
+            }
+
+
+            //await _bezKolejkiService.ProcessingDate(false, dates, code);
+
+            // https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/d677d3884504d5b9eadbfa74c5e29b1a7bb44daf3d2cce7666747b58986d8eaf/services;validate=true
+            var serviceUrl = $"https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/{branchPublicId}/services;validate=true";
+
+            var serviceValidate = await _httpService.SendGetRequest<List<GdanskQmaticServiceWebModel>>(serviceUrl);
+          
+            if (serviceValidate?.Data == null) {
+                return;
+            }
+
+            var objService = serviceValidate?.Data
+                .FirstOrDefault(d => d.Name == searchName);
+            if (objService == null)
+            {
+                _logger.LogInformation($"{code}. Not found {searchName}");
+                return;
+            }
+
+            foreach (var date in dates)
+            {
+                var reformattedDate = date.Date.ToString("yyyy-MM-dd");
+                var requestTimeUrl = $"https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/{branchPublicId}/dates/{reformattedDate}/times;servicePublicId={publicId};customSlotLength={service.duration}";
+                var responseSlots = await _httpService.SendGetRequest<List<GdanskQmaticDateTimeWebModel?>>(requestTimeUrl);
+
+                List<GdanskQmaticDateTimeWebModel?>? slots = responseSlots?.Data;
+                if (slots == null)
                 {
-                    bool dataSaved = false;
-                    List<string> dateStrings = dates.Select(d => d.Date.ToString("yyyy-MM-dd")).ToList();
-                    dataSaved = await _bezKolejkiService.ProcessingDate(dataSaved, dateStrings, code);
+                    _logger.LogWarning($"{code}. Slots not found");
+                    return;
+                }
+                foreach (var slot in slots)
+                {
+
+                    var payload = new
+                    {
+                        services = new[]
+                        {
+                            new { publicId }
+                        },
+                        custom = JsonConvert.SerializeObject(new
+                        {
+                            peopleServices = new[]
+                            {
+                                new
+                                {
+                                    publicId,
+                                    qpId = objService.QpId.ToString(),
+                                    adult = 1,
+                                    name = "Wydział Koordynacji Świadczeń",
+                                    child = 0
+                                }
+                            }
+                        })
+                    };
+
+
+                    processRegistration(branchPublicId, slot, service.duration);
                 }
             }
 
-          ;
+
+
+
         }
 
-
-        public async Task<GdanskTimeWebModel?> GetTimeAsync(string date, int BranchID, int ServiceID)
+        private void processRegistration(string branchPublicId,  GdanskQmaticDateTimeWebModel slot, int customSlotLength)
         {
-            var client = _httpClient.CreateClient();
-            var url = $"https://kolejka.gdansk.uw.gov.pl/admin/API/time/{BranchID}/{ServiceID}/{date}";
-            var response = await SendGetRequest<GdanskTimeWebModel>(url);
-            return response;
-        }
-        public async Task<List<GdanskQmaticWebModel?>> GetProfilesAsync(string url, string code)
-        {
-            var client = _httpClient.CreateClient();
-
-            try
-            {
-                var response = await client.GetAsync(url);
-                return await ProcessHttpResponse<List<GdanskQmaticWebModel?>>(response);
-            }
-            catch (HttpRequestException httpEx)
-            {
-                _logger.LogError($"HTTP error occurred while processing URL {url}: {httpEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"An error occurred while processing POST request to {url}: {ex.Message}");
-                throw;
-            }
-            return null;
-        }
-
-        public async Task<List<GdanskQmaticDateWebModel?>> GetDatesAsync(string url)
-        {
-            var client = _httpClient.CreateClient();
-
-            try
-            {
-                var response = await client.GetAsync(url);
-                return await ProcessHttpResponse<List<GdanskQmaticDateWebModel?>>(response);
-            }
-            catch (HttpRequestException httpEx)
-            {
-                _logger.LogError($"HTTP error occurred while processing URL {url}: {httpEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"An error occurred while processing POST request to {url}: {ex.Message}");
-                throw;
-            }
-            return null;
-        }
-
-        private async Task<T?> SendGetRequest<T>(string url) where T : class
-        {
-            var client = _httpClient.CreateClient();
-            try
-            {
-                var response = await client.GetAsync(url);
-                return await ProcessHttpResponse<T>(response);
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogWarning($"An error occurred during the second POST request: {ex.Message}");
-            }
-            return default;
-        }
-
-
-        private async Task<T?> ProcessHttpResponse<T>(HttpResponseMessage response) where T: class
-        {
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                if (string.IsNullOrEmpty(content))
-                {
-                    _logger.LogWarning("HTTP response is empty.");
-                    return null;
-                }
-                try
-                {
-                    return JsonConvert.DeserializeObject<T>(content);
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogError($"Failed to deserialize response: {ex.Message}");
-                    _logger.LogError($"Response content: {content}");
-                }
-            }
-            else
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                var error1 = JsonConvert.DeserializeObject<T>(content);
-                await _telegramBotService.SendAdminTextMessage($" error45 {content}");
-                await _telegramBotService.SendAdminTextMessage($" error55 {error1}");
-
-                var error = await response.Content.ReadFromJsonAsync<Error>();
-                _logger.LogWarning(message: $"HTTP Error {response.StatusCode}: {error?.Message} {error?.ToString()}");
-            }
-            return null;
+            var reserveUrl = $"https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/{branchPublicId}/dates/{slot.Date}/times/{slot.Time}/reserve;customSlotLength={customSlotLength}";
         }
     }
 }

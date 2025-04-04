@@ -102,8 +102,10 @@ namespace Services.Services
             }
         }
 
-        public async Task<bool> ProcessingDate(bool dataSaved, List<string> data, string code)
+        public async Task<bool> ProcessingDate(bool dataSaved, List<DateTime> dates, string code)
         {
+            _logger.LogInformation($"Processing date for {code}");
+            _logger.LogInformation($"Data: {string.Join(", ", dates)}");
             var previousDates = new List<DateTime>();
             try
             {
@@ -114,27 +116,13 @@ namespace Services.Services
                 _logger.LogWarning($"Error loading previousDates {code}");
             }
 
-            var availableDates = new List<DateTime>();
-
-            foreach (var dateStr in data)
+            if ((dates.Any() || previousDates.Any()) && !dataSaved)
             {
-                if (DateTime.TryParse(dateStr, out DateTime parsedDate))
-                {
-                    availableDates.Add(parsedDate);
-                }
-                else
-                {
-                    _logger.LogWarning($"Error parse string '{dateStr}' to DateTime");
-                }
-            }
-
-            if ((availableDates.Any() || previousDates.Any()) && !dataSaved)
-            {
-                await SaveDatesToDatabase(availableDates, previousDates, code);
+                await SaveDatesToDatabase(dates, previousDates, code);
                 dataSaved = true;
 
             }
-            else if (!availableDates.Any())
+            else if (!dates.Any())
             {
                 _logger.LogInformation($"{code}. Not available date for save");
             }

@@ -5,11 +5,11 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 using System.Net.Http.Json;
 using SixLabors.ImageSharp.Processing;
-using Newtonsoft.Json;
 using Microsoft.ML;
 using Services.Models;
 using BezKolejki_bot.Models;
-using System.Text;
+using Data.Entities;
+using System.Globalization;
 
 
 namespace BezKolejki_bot.Services
@@ -18,6 +18,7 @@ namespace BezKolejki_bot.Services
     {
         private readonly ILogger<MoskwaKpPostRequestProcessor> _logger;
         private readonly HttpClient _httpClient;
+        private readonly IHttpService _httpService;
         private readonly IBezKolejkiService _bezKolejkiService;
         private readonly IClientService _clientService;
         private readonly ITelegramBotService _telegramBotService;
@@ -33,11 +34,13 @@ namespace BezKolejki_bot.Services
             IBezKolejkiService bezKolejkiService, 
             IClientService clientService, 
             ITelegramBotService telegramBotService,
-            ICaptchaRecognitionService captchaService)
+            ICaptchaRecognitionService captchaService,
+            IHttpService httpService)
         {
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(60);
+            _httpService = httpService;
             _bezKolejkiService = bezKolejkiService;
             _clientService = clientService;
             _telegramBotService = telegramBotService;
@@ -83,7 +86,7 @@ namespace BezKolejki_bot.Services
 
             int attempts = 0;
             int maxRetries = 5;
-            ApiResult<FirstPostRequestModel?> captchaResponse = null;
+            ApiResult<FirstPostRequestModel> captchaResponse = null;
             ApiResult<SecondPostResponseModel> secondRequest = null;
 
 
@@ -94,12 +97,11 @@ namespace BezKolejki_bot.Services
                 {
                     //SaveImageToFile("c:\\1", captchaResponse.Data.Id, captchaResponse.Data.Image, captchaResponse.Data.Kod ?? string.Empty);
 
-
                     if (!string.IsNullOrEmpty(captchaResponse.Data.Kod) && captchaResponse.Data.Kod.Length == 4)
                     {
                         var payloadSprawdz = new { kod = captchaResponse.Data.Kod, token = captchaResponse.Data.Id };
 
-                        secondRequest = await SendPostRequest<SecondPostResponseModel>("https://api.e-konsulat.gov.pl/api/u-captcha/sprawdz", payloadSprawdz);
+                        secondRequest = await _httpService.SendPostRequest<SecondPostResponseModel>("https://api.e-konsulat.gov.pl/api/u-captcha/sprawdz", payloadSprawdz);
 
                         if (secondRequest.Data != null && secondRequest.Data.Ok)
                         {
@@ -133,19 +135,22 @@ namespace BezKolejki_bot.Services
 
             await Task.Delay(300);
             var payloadThird = new { token = secondRequest.Data.Token };
-            var thirdResponse = await SendPostRequest<ThirdPostResponseModel>(url, payloadThird);
+            var thirdResponse = await _httpService.SendPostRequest<ThirdPostResponseModel>(url, payloadThird);
             SaveImageToFile("c:\\1\\ok", captchaResponse?.Data?.Id ?? string.Empty, captchaResponse?.Data?.Image ?? string.Empty, captchaResponse?.Data?.Kod ?? string.Empty);
 
 
-            var dates = new HashSet<string>();
+            var dates = new HashSet<DateTime>();
 
             if (thirdResponse.IsSuccess && thirdResponse?.Data?.ListaTerminow != null)
             {
                 foreach (var item in thirdResponse.Data.ListaTerminow)
                 {
-                    dates.Add(item.Data);
-                    _logger.LogWarning($"{code}{thirdResponse.Data.Token} {item.IdTerminu} {item.Data} {item.Godzina} ");
+                    if (DateTime.TryParseExact(item.Data, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate))
+                    {
+                        dates.Add(parsedDate);
+                    }
                 }
+                    _logger.LogWarning($"{code} {string.Join(", ", dates)}");
             }
 
             await _bezKolejkiService.ProcessingDate(dataSaved, dates.ToList(), code);
@@ -166,7 +171,7 @@ namespace BezKolejki_bot.Services
                             continue;
                         }
 
-                        if (fourthResult == null) {
+                        if (fourthResult == null && fourthResult?.Data == null) {
                             _logger.LogWarning($"{code}. ProcessingRezerwacje return null.");
                             continue;
                         }
@@ -185,7 +190,7 @@ namespace BezKolejki_bot.Services
 
                         if (fiveResult != null && fiveResult.Data != null && fiveResult.Data.Wynik == "zapisano")
                         {
-                            var pdfPath = Path.Combine("c:\\1", $"{fiveResult.Data.Guid}.pdf");
+                            var pdfPath = Path.Combine(@"c:\1", $"{fiveResult.Data.Guid}.pdf");
 
                             await DownloadPdfAsync(fiveResult.Data.Guid, pdfPath);
                             var message = $"{code} "+
@@ -275,7 +280,7 @@ namespace BezKolejki_bot.Services
                     Token = token
                 };
 
-                var fourthResponse = await SendPostRequest<FourthRezerwacjePostResponseModel>
+                var fourthResponse = await _httpService.SendPostRequest<FourthRezerwacjePostResponseModel>
                     ("https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/rezerwacje", payloadFourth);
                 if (!fourthResponse.IsSuccess)
                 {
@@ -298,9 +303,9 @@ namespace BezKolejki_bot.Services
                     Imie1 = client.Surname.ToUpper(),
                     Nazwisko1 = client.Surname.ToUpper(),
                     DataUrodzenia = client.DateOfBirth?.ToString("yyyy-MM-dd") ?? "",
-                    Obywatelstwo = client.Citizenship.ToUpper(),
+                    Obywatelstwo = client.Citizenship?.ToUpper() ?? "",
                     ObywatelstwoICAO = "RUS",
-                    Plec = (bool)client.Sex ? "M" : "K",
+                    Plec = (bool)client?.Sex ? "M" : "K",
                     NumerPaszportu = client?.PassportNumber ?? "number",
                     NumerIdentyfikacyjny = client?.PassportIdNumber ?? "0",
                     Ulica = client?.Street ?? "street",
@@ -308,11 +313,11 @@ namespace BezKolejki_bot.Services
                     KodPocztowy = client?.ZipCode ?? "0",
                     Miejscowosc = client?.City ?? "sity",
                     Telefon = (client?.PhoneNumberPrefix ?? "+") + (client?.PhoneNumber ?? "00000000"),
-                    Email = client?.Email.ToLower() ?? "-",
+                    Email = client?.Email?.ToLower() ?? "-",
                     OpisSprawy = "Karta Polaka"
                 }
             };
-            var fiveResponse = await SendPostRequest<FivePostDaneKartaPolakaDaneFormularzaResponseModel>
+            var fiveResponse = await _httpService.SendPostRequest<FivePostDaneKartaPolakaDaneFormularzaResponseModel>
                  ("https://api.e-konsulat.gov.pl/api/formularze/dane-karta-polaka", payloadDaneKartaPolaka);
             if (!fiveResponse.IsSuccess)
             {
@@ -335,7 +340,6 @@ namespace BezKolejki_bot.Services
                 hasHeader: true
             );
 
-            // Загружаем данные в список для модификации
             var enumerableData = _mlContext.Data.CreateEnumerable<CaptchaData>(data, reuseRowObject: false).ToList();
             foreach (var item in enumerableData)
             {
@@ -355,10 +359,8 @@ namespace BezKolejki_bot.Services
                     });
 
                     string processedImagePath = Path.Combine(directoryPatch, $"processed_{Path.GetFileName(item.ImagePath)}");
-                    // Можно использовать SaveAsync, если требуется асинхронность
                     await preprocessedImage.SaveAsync(processedImagePath);
 
-                    // Обновляем путь к изображению в объекте
                     item.ImagePath = processedImagePath;
                 }
             }
@@ -409,17 +411,17 @@ namespace BezKolejki_bot.Services
         }
 
 
-        public async Task<ApiResult<FirstPostRequestModel?>> FirstPostRequest(string url)
+        public async Task<ApiResult<FirstPostRequestModel>> FirstPostRequest(string url)
         {
             var payLoad = new { imageWidth = 400, imageHeight = 200 };
-            var response = await SendPostRequest<FirstPostRequestModel>("https://api.e-konsulat.gov.pl/api/u-captcha/generuj", payLoad);
+            var response = await _httpService.SendPostRequest<FirstPostRequestModel>("https://api.e-konsulat.gov.pl/api/u-captcha/generuj", payLoad);
 
             if (response != null && response.Data != null)
             {
                 //var kodML = await _captchaService.RecognizeCaptchaML(_captchaService.ConvertBase64ToImage(response.Data.Image));
-                var kodT = await _captchaService.RecognizeCaptchaTesseract(response.Data.Image);
+                var kodT = _captchaService.RecognizeCaptchaTesseract(response.Data.Image);
                 //_logger.LogInformation($"{kodML} - {kodT}");
-                response.Data.Kod = kodT;
+                response.Data.Kod = await kodT;
             }
 
             return response;
@@ -432,63 +434,6 @@ namespace BezKolejki_bot.Services
             File.WriteAllBytes(fileName, imageBytes);
         }
 
-        private async Task<ApiResult<T>> SendPostRequest<T>(string url, object payload) where T : class
-        {
-            try
-            {
-                var json = JsonConvert.SerializeObject(payload);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(url, content);
-                return await ProcessHttpResponse<T>(response);
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogWarning($"An error occurred during the second POST request: {ex.Message}");
-                return new ApiResult<T>
-                {
-                    IsSuccess = false,
-                    ErrorMessage = ex.Message,
-                };
-            }
-        }
-
-        private async Task<ApiResult<T>> ProcessHttpResponse<T>(HttpResponseMessage response) where T : class
-        {
-            var result = new ApiResult<T>();
-            if (response.IsSuccessStatusCode)
-            {
-                try
-                {
-                    var data = await response.Content.ReadFromJsonAsync<T>();
-                    result.Data = data;
-                    result.IsSuccess = true;
-                }
-                catch (JsonException ex)
-                {
-                    result.IsSuccess = false;
-                    result.ErrorMessage = ($"Failed to deserialize response: {ex.Message}");
-                    _logger.LogError(result.ErrorMessage);
-                }
-            }
-            else
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                try
-                {
-                    var error = JsonConvert.DeserializeObject<ApiErrorResponse>(content);
-                    result.ErrorMessage = error?.reason ?? content;
-                }
-                catch (Exception ex)
-                {
-                    result.ErrorMessage = content;
-                    _logger.LogWarning($"Failed to deserialize error response: {ex.Message}");
-
-                }
-                result.IsSuccess = false;
-                _logger.LogWarning($"HTTP Error {response.StatusCode}: {result?.ErrorMessage}");
-            }
-            return result;
-        }
 
         private Image<Rgba32> PreprocessImageML(Image<Rgba32> image)
         {
@@ -568,18 +513,6 @@ namespace BezKolejki_bot.Services
 
             _model = _mlContext.Model.Load(_modelPath, out var modelSchema);
             _isModelLoaded = true;
-        }
-
-    
-        public class ApiResult<T>
-        {
-            public bool IsSuccess { get; set; }      
-            public T? Data { get; set; }   
-            public string? ErrorMessage { get; set; }
-        }
-        public class ApiErrorResponse
-        {
-            public string reason { get; set; } = string.Empty;
         }
     }
 }

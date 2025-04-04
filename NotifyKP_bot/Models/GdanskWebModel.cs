@@ -55,7 +55,7 @@ namespace BezKolejki_bot.Models
         public string TicketNumber { get; set; } = string.Empty;
 
         [JsonProperty("code")]
-        public string Code {  get; set; } = string.Empty;
+        public int Code {  get; set; }
     }
 
     public class GdanskTakeAppointmentService

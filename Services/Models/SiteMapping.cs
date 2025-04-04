@@ -83,8 +83,9 @@
                 {
                     { "Wydawanie dokumentów (karty pobytu, zaproszenia)", "/Opole01" },
                     { "Złożenie wniosku: przez ob. UE i członków ich rodzin/na zaproszenie/o wymianę karty pobytu (w przypadku: zmiany danych umieszczonych w posiadanej karcie pobytu, zmiany wizerunku twarzy, utraty, uszkodzenia) oraz uzupełnianie braków formalnych w tych sprawach", "/Opole02" },
-                    { "Karta Polaka - złożenie wniosku o przyznanie Karty Polaka", "/Opole03" },
-                    { "Karta Polaka - złożenie wniosku o wymianę / przedłużenie / wydanie duplikatu / odbiór ", "/Opole04"}
+                    { "Karta Polaka – złożenie wniosku o przyznanie Karty Polaka dla dziecka (gdy co najmniej jeden z rodziców posiada/posiadał Kartę Polaka)", "/Opole03" },
+                    { "Karta Polaka – złożenie wniosku o przedłużenie ważności Karty Polaka / zmiana danych posiadacza / wydanie duplikatu", "/Opole04"},
+                    { "Odbiór Karty Polaka", "/Opole05" }
                 }
             },
 
@@ -95,7 +96,7 @@
                 Url = "https://bezkolejki.eu/puw_rzeszow2",
                 CodeMapping = new Dictionary<string, string>
                 {
-                    { "1. Odbiór paszportów)", "/Rzeszow01" },
+                    { "1. Odbiór paszportów", "/Rzeszow01" },
                     { "4. Składanie wniosków w sprawach obywatelstwa polskiego (nadanie, zrzeczenie, uznanie, potwierdzenie posiadania) - pokój 326, III piętro", "/Rzeszow04" },
                     { "6. Złożenie wniosku przez obywateli UE oraz członków ich rodzin (NIE DOT. OB. POLSKICH I CZŁONKÓW ICH RODZIN); złożenie wniosku o wymianę dokumentu, przedłużenie wizy; zaproszenie", "/Rzeszow06" }
                 }

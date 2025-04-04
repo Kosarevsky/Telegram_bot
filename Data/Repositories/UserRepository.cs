@@ -46,7 +46,7 @@ namespace Data.Repositories
                         {
                             TelegramUserId = telegramId,
                             DateLastSubscription = date,
-                            DateRegistration = DateTime.Now,
+                            DateRegistration = date,
                             IsActive = true,
                             Subscriptions = new List<UserSubscription>()
                         };
@@ -90,13 +90,13 @@ namespace Data.Repositories
             {
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.TelegramUserId == userTg.TelegramUserId);
-
+                var date = await _context.GetCurrentDateTimeFromServerAsync();
                 if (user == null)
                 {
                     user = new User
                     {
                         TelegramUserId = userTg.TelegramUserId,
-                        DateLastSubscription = await _context.GetCurrentDateTimeFromServerAsync(),
+                        DateLastSubscription = date,
                         FirstName = userTg.FirstName,
                         LastName = userTg.LastName,
                         UserName = userTg.UserName,
@@ -108,7 +108,7 @@ namespace Data.Repositories
                 }
                 else
                 {
-                    user.DateLastSubscription = DateTime.UtcNow;
+                    user.DateLastSubscription = date;
                     user.FirstName = userTg.FirstName;
                     user.LastName = userTg.LastName;
                     user.UserName = userTg.UserName;
