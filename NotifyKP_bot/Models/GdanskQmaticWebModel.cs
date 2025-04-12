@@ -124,51 +124,51 @@ namespace BezKolejki_bot.Models
     public class GdanskQmaticPostRequestReserveServiceWebModel
     {
         [JsonProperty("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [JsonProperty("publicId")]
-        public string PublicId { get; set; }
+        public string PublicId { get; set; } = string.Empty;
     }
     public class GdanskQmaticPostRequestReserveBranchWebModel
     {
         [JsonProperty("addressCity")]
-        public string AddressCity { get; set; }
+        public string AddressCity { get; set; } = string.Empty;
 
         [JsonProperty("addressCountry")]
-        public string AddressCountry { get; set; }
+        public string AddressCountry { get; set; } = string.Empty;
 
         [JsonProperty("addressLine1")]
-        public string AddressLine1 { get; set; }
+        public string AddressLine1 { get; set; } = string.Empty;
 
         [JsonProperty("addressLine2")]
-        public string AddressLine2 { get; set; }
+        public string AddressLine2 { get; set; } = string.Empty;
 
         [JsonProperty("addressZip")]
-        public string AddressZip { get; set; }
+        public string AddressZip { get; set; } = string.Empty;
 
         [JsonProperty("custom")]
-        public string Custom { get; set; }
+        public string Custom { get; set; } = string.Empty;
 
         [JsonProperty("email")]
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
 
         [JsonProperty("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
         [JsonProperty("internalId")]
         public int InternalId { get; set; }
 
         [JsonProperty("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [JsonProperty("phone")]
-        public string Phone { get; set; }
+        public string Phone { get; set; } = string.Empty;
 
         [JsonProperty("qpId")]
-        public string QpId { get; set; }
+        public string QpId { get; set; } = string.Empty;
 
         [JsonProperty("timeZone")]
-        public string TimeZone { get; set; }
+        public string TimeZone { get; set; } = string.Empty;
     };
     public class GdanskQmaticPostRequestCheckMultipleWebModel
     {

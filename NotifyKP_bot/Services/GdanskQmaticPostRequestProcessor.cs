@@ -2,13 +2,8 @@
 using BezKolejki_bot.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using OpenQA.Selenium.BiDi.Modules.Script;
-using OpenQA.Selenium.DevTools.V85.ApplicationCache;
 using Services.Interfaces;
 using Services.Models;
-using Services.Services;
-using System.Threading.Tasks;
-using static System.Net.WebRequestMethods;
 
 namespace BezKolejki_bot.Services
 {
@@ -17,7 +12,6 @@ namespace BezKolejki_bot.Services
         private readonly ILogger<GdanskQmaticPostRequestProcessor> _logger;
         private readonly IBezKolejkiService _bezKolejkiService;
         private readonly IHttpService _httpService;
-        private readonly JsonSerializerSettings _jsonSerializerSettings;
         private readonly ITelegramBotService _telegramBotService;
         private readonly IClientService _clientService;
 
@@ -32,13 +26,6 @@ namespace BezKolejki_bot.Services
             _bezKolejkiService = bezKolejkiService;
             _httpService = httpService;
             _telegramBotService = telegramBotService;
-            _clientService = clientService;
-
-            _jsonSerializerSettings = new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                Formatting = Formatting.Indented
-            };
             _clientService = clientService;
         }
         private string? GetBranchPublicId(List<GdanskQmaticWebModel?> profiles, string searchName)
