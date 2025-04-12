@@ -86,8 +86,8 @@ namespace BezKolejki_bot.Services
 
             int attempts = 0;
             int maxRetries = 5;
-            ApiResult<FirstPostRequestModel> captchaResponse = null;
-            ApiResult<SecondPostResponseModel> secondRequest = null;
+            ApiResult<FirstPostRequestModel>? captchaResponse = null;
+            ApiResult<SecondPostResponseModel>? secondRequest = null;
 
 
             while (attempts < maxRetries)
@@ -95,8 +95,6 @@ namespace BezKolejki_bot.Services
                 captchaResponse = await FirstPostRequest(url);
                 if (captchaResponse != null && captchaResponse.Data != null)
                 {
-                    //SaveImageToFile("c:\\1", captchaResponse.Data.Id, captchaResponse.Data.Image, captchaResponse.Data.Kod ?? string.Empty);
-
                     if (!string.IsNullOrEmpty(captchaResponse.Data.Kod) && captchaResponse.Data.Kod.Length == 4)
                     {
                         var payloadSprawdz = new { kod = captchaResponse.Data.Kod, token = captchaResponse.Data.Id };
@@ -365,9 +363,7 @@ namespace BezKolejki_bot.Services
                 }
             }
 
-            // Создаем новый IDataView из обновленного списка
             var updatedData = _mlContext.Data.LoadFromEnumerable(enumerableData);
-            // Разделяем данные на обучающую и тестовую выборки
             var splitData = _mlContext.Data.TrainTestSplit(updatedData, testFraction: 0.2);
 
             _logger.LogInformation("Creating pipeline...");

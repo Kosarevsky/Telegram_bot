@@ -70,7 +70,6 @@ namespace BezKolejki_bot
                         options.EnableSensitiveDataLogging();
                     }, ServiceLifetime.Transient);
 
-
                     services.AddTransient<IBezKolejkiService, BezKolejkiService>();
                     services.AddTransient<BrowserSiteProcessor>();
                     services.AddTransient<OlsztynPostRequestProcessor>();
@@ -80,13 +79,11 @@ namespace BezKolejki_bot
 
                     services.AddTransient<ISiteProcessorFactory, SiteProcessorFactory>();
                     services.AddTransient<IBrowserAutomationService, BrowserAutomationService>();
-                    ;
                     services.AddTransient<IUserService, UserService>();
                     services.AddTransient<IClientService, ClientService>();
                     services.AddHostedService<ScheduledTaskService>();
                     services.AddHostedService<UserActivityChecker>();
                     services.AddScoped<IUserActivityChecker, UserActivityChecker>();
-
                     services.AddHostedService<TelegramBotService>();
                     services.AddSingleton<ITelegramBotService, TelegramBotService>();
                     services.AddTransient<ICaptchaRecognitionService, CaptchaRecognitionService>();
@@ -94,13 +91,17 @@ namespace BezKolejki_bot
                     services.AddTransient<IHttpService, HttpService>();
                     services.AddSingleton<IProxyProvider, RandomProxyProvider>();
                     services.AddHttpClient("ProxyClient")
+                        .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(60))
                         .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
                         {
                             var proxyProvider = serviceProvider.GetRequiredService<IProxyProvider>();
+
+                            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+                            bool useProxy = configuration.GetValue("ProxySettings:UseProxy", false);
                             return new HttpClientHandler
                             {
-                                Proxy = proxyProvider.GetRandomProxy(),
-                                UseProxy = true
+                                Proxy = useProxy ? proxyProvider.GetRandomProxy() : null,
+                                UseProxy = useProxy,
                             };
                         });
 

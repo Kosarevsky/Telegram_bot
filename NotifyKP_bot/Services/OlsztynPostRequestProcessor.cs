@@ -1,10 +1,11 @@
 ﻿using BezKolejki_bot.Interfaces;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
+using Microsoft.SqlServer.Server;
 using Services.Interfaces;
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.Text;
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace BezKolejki_bot.Services
@@ -12,18 +13,38 @@ namespace BezKolejki_bot.Services
     public class OlsztynPostRequestProcessor : ISiteProcessor
     {
         private readonly ILogger<OlsztynPostRequestProcessor> _logger;
-        private readonly IHttpClientFactory _httpClient;
+        private readonly IHttpService _httpService;
         private readonly IBezKolejkiService _bezKolejkiService;
+        private bool _useProxy = true; 
 
-        public OlsztynPostRequestProcessor(ILogger<OlsztynPostRequestProcessor> logger, IHttpClientFactory httpClientFactory, IBezKolejkiService bezKolejkiService)
+        public OlsztynPostRequestProcessor(ILogger<OlsztynPostRequestProcessor> logger, IHttpService httpService, IBezKolejkiService bezKolejkiService)
         {
             _logger = logger;
-            _httpClient = httpClientFactory;
+            _httpService = httpService;
             _bezKolejkiService = bezKolejkiService;
         }
 
         public async Task ProcessSiteAsync(string url, string code)
         {
+/*            var testProxy = new HttpClient(new HttpClientHandler
+            {
+                Proxy = new WebProxy("http://185.95.230.237:8000")
+                {
+                    Credentials = new NetworkCredential("9s8cAt", "55rPLxx")
+                },
+                UseProxy = true,
+                PreAuthenticate = true
+            });
+            var testResponse = await testProxy.GetAsync("http://2ip.ru");
+            var test = testResponse.Content.ReadAsStringAsync();*/
+
+
+/*            var response2 = await _httpService.SendGetRequest<string>(
+                    "http://2ip.ru",
+                    useProxy: true,
+                    additionalSuccessPredicate: r => r.Content.Headers.ContentType?.MediaType?.Contains("text/html") ?? false
+                );*/
+
             var countByActiveUsers = await _bezKolejkiService.GetCountActiveUsersByCode(code);
 
             if (countByActiveUsers <= 0)
@@ -34,16 +55,22 @@ namespace BezKolejki_bot.Services
 
             _logger.LogInformation($"{code} count subscribers has {countByActiveUsers} {_bezKolejkiService.TruncateText(url, 40)}");
 
-            var client = _httpClient.CreateClient();
             ConcurrentBag<DateTime> dates = new ConcurrentBag<DateTime>();
             bool dataSaved = false;
             try
             {
-                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
-                HttpResponseMessage response = await client.SendAsync(request);
-                response.EnsureSuccessStatusCode();
+                var response = await _httpService.SendGetRequest<string>(
+                    url,
+                    useProxy: _useProxy,
+                    additionalSuccessPredicate: r => r.Content.Headers.ContentType?.MediaType?.Contains("text/html") ?? false
+                );
+                if (!response.IsSuccess)
+                {
+                    _logger.LogError($"Failed to get content from {url}: {response.ErrorMessage}");
+                    return;
+                }
 
-                string content = await response.Content.ReadAsStringAsync();
+                string content = response.Data;
 
                 DateOnly minDate = DateOnly.FromDateTime(DateTime.Now.AddDays(1));
                 DateOnly maxDate =minDate.AddDays(90);
@@ -62,7 +89,7 @@ namespace BezKolejki_bot.Services
                 {
                     if (!disabledDays.Contains(date) && date.DayOfWeek != DayOfWeek.Sunday && date.DayOfWeek != DayOfWeek.Saturday)
                     {
-                        var isAvailableDate = await GetAvailableTimeByDate(date, client);
+                        var isAvailableDate = await GetAvailableTimeByDate(date);
                         if (isAvailableDate)
                         {
                             dates.Add(date.ToDateTime(TimeOnly.MinValue));
@@ -84,19 +111,26 @@ namespace BezKolejki_bot.Services
             }
         }
 
-        private async Task<bool> GetAvailableTimeByDate(DateOnly date, HttpClient client)
+        private async Task<bool> GetAvailableTimeByDate(DateOnly date)
         {
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://olsztyn.uw.gov.pl/wizytakartapolaka/godziny_pokoj_A1.php")
+            var formData = new Dictionary<string, string>
             {
-                Content = new StringContent($"godzina={date:yyyy-MM-dd}", Encoding.UTF8, "application/x-www-form-urlencoded")
+                { "godzina", date.ToString("yyyy-MM-dd") }
             };
-            HttpResponseMessage response = await client.SendAsync(request);
-            response.EnsureSuccessStatusCode();
 
-            string responseText = await response.Content.ReadAsStringAsync();
+            var response = await _httpService.SendFormPostRequest<string>(
+                "https://olsztyn.uw.gov.pl/wizytakartapolaka/godziny_pokoj_A1.php",
+                formData, useProxy: _useProxy
+            );
+
+            if (!response.IsSuccess)
+            {
+                _logger.LogError($"Failed to get available times: {response.ErrorMessage}");
+                return false;
+            }
 
             var htmlDoc = new HtmlDocument();
-            htmlDoc.LoadHtml(responseText);
+            htmlDoc.LoadHtml(response.Data);
             var stanowiskoElement = htmlDoc.DocumentNode.SelectSingleNode("//div[@class='stanowiskoA']");
                    
             var availableTimes = new List<string>();
@@ -109,7 +143,7 @@ namespace BezKolejki_bot.Services
 
                     foreach (var input in inputs)
                     {
-                        var time = input.GetAttributeValue("value", null);
+                        var time = input.GetAttributeValue("value", string.Empty);
                         if (!string.IsNullOrEmpty(time))
                         {
                             var formattedTime = Regex.Match(time, @"\d{2}:\d{2}")?.Value; // Extract time (e.g., "11:00")

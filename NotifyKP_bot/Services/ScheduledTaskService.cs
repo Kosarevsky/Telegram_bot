@@ -49,17 +49,17 @@ namespace BezKolejki_bot.Services
             {
                 var urls = new List<string>()
                     {
-                        "https://bezkolejki.eu/luwbb/",
+/*                        "https://bezkolejki.eu/luwbb/",
                         "https://uw.bezkolejki.eu/ouw",
                         "https://bezkolejki.eu/puw_rzeszow2",
-                        "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php",
-                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/pl", //Gdansk01
-                        "https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/appointmentProfiles/", //Gdansk02
-                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/198/pl", //slupsk01
+                        "https://olsztyn.uw.gov.pl/wizytakartapolaka/pokoj_A1.php",*/
+                      //  "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/pl", //Gdansk01
+                       // "https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/appointmentProfiles/", //Gdansk02
+//                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/198/pl", //slupsk01 
                         "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/202/pl", //slupsk02
-                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/199/pl", //slupsk03
+/*                        "https://kolejka.gdansk.uw.gov.pl/admin/API/date/8/199/pl", //slupsk03
                         "https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/terminy/1769/1", // Moskwa
-                        "https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/terminy/416/1" //KZ
+                        "https://api.e-konsulat.gov.pl/api/rezerwacja-wizyt-karta-polaka/terminy/416/1" //KZ*/
                     };
                 await _browserAutomationService.GetAvailableDateAsync(urls);
             }

@@ -17,7 +17,8 @@
   },
   {
     "ProxySettings": {
-      "Proxies": []
+      "Proxies": [ "http://username:password@ip:port" ],
+      "UseProxy": true
     }
   }
   "Logging": {

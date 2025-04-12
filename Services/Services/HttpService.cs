@@ -20,10 +20,55 @@ namespace Services.Services
             _timeout = int.TryParse(configuration["OtherSettings:TimeOutPostGetRequest"], out int resTimeout) ? resTimeout : 30;
         }
 
-        public async Task<ApiResult<T>> SendGetRequest<T>(string url, bool useProxy = false) where T : class
+        public async Task<ApiResult<T>> SendGetRequest<T>(
+                string url,
+                bool useProxy = false,
+                Func<HttpResponseMessage, bool> additionalSuccessPredicate = null)
+                where T : class
         {
-            return await SendRequestAsync<T>(HttpMethod.Get, url, useProxy);
+            _logger.LogInformation($"Sending GET request to {url} via {(useProxy ? "PROXY" : "DIRECT")}");
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                _logger.LogWarning("URL is null or empty.");
+                return new ApiResult<T> { IsSuccess = false, ErrorMessage = "URL is null or empty." };
+            }
+
+            var client = useProxy
+                ? _httpClientFactory.CreateClient("ProxyClient")
+                : _httpClientFactory.CreateClient("DefaultClient");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_timeout));
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+
+            try
+            {
+                var response = await client.SendAsync(request, cts.Token);
+
+                if (additionalSuccessPredicate != null && !additionalSuccessPredicate(response))
+                {
+                    return new ApiResult<T>
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Additional success condition not met"
+                    };
+                }
+
+                return await ProcessHttpResponse<T>(response)
+                    ?? new ApiResult<T> { IsSuccess = false, ErrorMessage = "Unexpected null response." };
+            }
+            catch (TaskCanceledException ex) when (!cts.Token.IsCancellationRequested)
+            {
+                _logger.LogWarning($"Request timed out: {url}");
+                return new ApiResult<T> { IsSuccess = false, ErrorMessage = $"Request timeout. {ex.Message}" };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in SendGetRequest: {ex.Message}");
+                return new ApiResult<T> { IsSuccess = false, ErrorMessage = ex.Message };
+            }
         }
+
 
         public async Task<ApiResult<T>> SendPostRequest<T>(string url, object payload, bool useProxy = false) where T : class
         {
@@ -37,14 +82,14 @@ namespace Services.Services
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             return await SendRequestAsync<T>(HttpMethod.Post, url, useProxy, content);
         }
-        public async Task<ApiResult<T>> SendMultipartPostRequest<T>(string url, MultipartFormDataContent payload, bool useProxy = false) where T : class
+        public async Task<ApiResult<T>> SendMultipartPostRequest<T>(string url, MultipartFormDataContent payload, bool useProxy = false, Dictionary<string, string>? headers = null) where T : class
         {
             if (payload == null)
             {
                 _logger.LogWarning("MultipartFormDataContent payload is null.");
                 return new ApiResult<T> { IsSuccess = false, ErrorMessage = "MultipartFormDataContent payload is null." };
             }
-            return await SendRequestAsync<T>(HttpMethod.Post, url, useProxy, payload);
+            return await SendRequestAsync<T>(HttpMethod.Post, url, useProxy, payload, headers);
         }
         private async Task<ApiResult<T>> ProcessHttpResponse<T>(HttpResponseMessage response) where T : class
         {
@@ -62,46 +107,53 @@ namespace Services.Services
                 return new ApiResult<T> { IsSuccess = false, ErrorMessage = "Response content is null." };
             }
 
-            var jsonResponse = await response.Content.ReadAsStringAsync();
-            //_logger.LogInformation($"Received JSON response: {jsonResponse}");
-            if (string.IsNullOrWhiteSpace(jsonResponse))
-            {
-                _logger.LogWarning("Received an empty JSON response.");
-                result.IsSuccess = false;
-                result.ErrorMessage = "Empty response from server.";
+            var contentType = response.Content.Headers.ContentType?.MediaType;
+            _logger.LogInformation($"Response Content-Type: {contentType}");
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (typeof(T) == typeof(string))
+            { 
+                result.Data = (T)(object)responseContent;
+                result.IsSuccess = true;
                 return result;
             }
 
-            if (response.IsSuccessStatusCode)
+            // Is JSON?
+            var trimmed = responseContent.TrimStart();
+            if (!(trimmed.StartsWith("{") || trimmed.StartsWith("[")))
             {
-                try
+                var preview = trimmed.Length > 300 ? trimmed.Substring(0, 300) + "..." : trimmed;
+                _logger.LogWarning($"Unexpected response format. First part of content:\n{preview}");
+                return new ApiResult<T>
                 {
-                    result.Data = JsonConvert.DeserializeObject<T>(jsonResponse);
-                    result.IsSuccess = result.Data != null;
-                    if (!result.IsSuccess)
-                    {
-                        _logger.LogWarning("Deserialized object is null.");
-                        result.ErrorMessage = "Deserialized object is null.";
-                    }
-                }
-                catch (JsonException ex)
+                    IsSuccess = false,
+                    ErrorMessage = "Response is not a valid JSON format."
+                };
+            }
+
+            try
+            {
+                result.Data = JsonConvert.DeserializeObject<T>(responseContent);
+                result.IsSuccess = result.Data != null;
+                if (!result.IsSuccess)
                 {
-                    result.IsSuccess = false;
-                    result.ErrorMessage = $"Failed to deserialize response: {ex.Message}";
-                    _logger.LogError(result.ErrorMessage);
+                    _logger.LogWarning("Deserialized object is null.");
+                    result.ErrorMessage = "Deserialized object is null.";
                 }
             }
-            else
+            catch (JsonException ex)
             {
                 result.IsSuccess = false;
-                result.ErrorMessage = await HandleErrorResponse(response);
-                _logger.LogWarning($"HTTP Error {response.StatusCode}: {result.ErrorMessage}");
+                result.ErrorMessage = $"Failed to deserialize response: {ex.Message}";
+                _logger.LogError(result.ErrorMessage);
             }
+
 
             return result;
         }
 
-        private async Task<ApiResult<T>> SendRequestAsync<T>(HttpMethod method, string url, bool useProxy = false, HttpContent ? content = null) where T : class
+        private async Task<ApiResult<T>> SendRequestAsync<T>(HttpMethod method, string url, bool useProxy = false, HttpContent ? content = null, Dictionary<string, string>? headers = null) where T : class
         {
             _logger.LogInformation($"Sending {method} request to {url} via {(useProxy ? "PROXY" : "DIRECT")}");
             if (string.IsNullOrWhiteSpace(url))
@@ -120,6 +172,13 @@ namespace Services.Services
             if (content != null)
             {
                 request.Content = content;
+            }
+            if (headers != null)
+            {
+                foreach (var header in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
             }
 
             try
@@ -149,36 +208,16 @@ namespace Services.Services
                 ? _httpClientFactory.CreateClient("ProxyClient")
                 : _httpClientFactory.CreateClient("DefaultClient");
         }
-        private async Task<string> HandleErrorResponse(HttpResponseMessage response)
+        public async Task<ApiResult<T>> SendFormPostRequest<T>(string url, Dictionary<string, string> formData, bool useProxy = false) where T : class
         {
-            if (response == null)
+            if (formData == null)
             {
-                _logger.LogWarning("Received a null response in HandleErrorResponse.");
-                return "Null response from server.";
+                _logger.LogWarning("Form data is null.");
+                return new ApiResult<T> { IsSuccess = false, ErrorMessage = "Form data is null." };
             }
 
-            if (response.Content == null)
-            {
-                _logger.LogWarning("Received a response with null content in HandleErrorResponse.");
-                return $"HTTP {response.StatusCode}: No error details provided.";
-            }
-
-            var content = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                return $"HTTP {response.StatusCode}: No error details provided.";
-            }
-
-            try
-            {
-                var error = JsonConvert.DeserializeObject<ApiErrorResponse>(content);
-                return error?.reason ?? $"Unexpected error: {content}";
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning($"Failed to deserialize error response: {ex.Message}");
-                return $"Failed to parse error response: {content}";
-            }
+            var content = new FormUrlEncodedContent(formData);
+            return await SendRequestAsync<T>(HttpMethod.Post, url, useProxy, content);
         }
     }
 }
